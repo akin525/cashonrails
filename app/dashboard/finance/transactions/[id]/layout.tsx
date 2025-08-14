@@ -1,0 +1,102 @@
+"use client"
+
+import React, { useEffect, useState } from 'react'
+import NavLinkLayout from '@/components/dashboard/SettingsTab';
+import Header from './Header';
+import { CalendarIcon, ChevronIcon } from '@/public/assets/icons';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Chip } from '@/components/chip';
+import { useAuth } from '@/contexts/authContext';
+import axiosInstance from '@/helpers/axiosInstance';
+import toast from 'react-hot-toast';
+import { TransactionResponse } from './page';
+import moment from 'moment';
+import { TableDetailSkeleton } from '@/components/loaders';
+
+export default function SettingsLayout({
+    children,
+    params
+}: {
+    children: React.ReactNode,
+    params: { "id": string }
+}) {
+    const [transaction, setTransaction] = useState<TransactionResponse | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const { authState } = useAuth();
+
+    useEffect(() => {
+        const fetchTransactionDetails = async () => {
+            if (!authState?.token) return;
+
+            try {
+                setIsLoading(true);
+                const response = await axiosInstance.get<TransactionResponse>(`/finance/transactions/${params.id}`, {
+                    headers: {
+                        Authorization: `Bearer ${authState.token}`
+                    }
+                });
+
+                if (response.data.data && response.data.status) {
+                    setTransaction(response.data.data);
+                } else {
+                    toast.error(response.data.message || "Something went wrong")
+                }
+                setIsLoading(false);
+            } catch (err) {
+                setError('Failed to fetch transaction details');
+                setIsLoading(false);
+            }
+        };
+
+        fetchTransactionDetails();
+    }, [params.id, authState?.token]);
+
+    if (isLoading) return <div>
+        <TableDetailSkeleton />
+    </div>;
+    if (error) return <div>{error}</div>;
+    if (!transaction) return <div>No transaction found</div>;
+    return (
+        <>
+            <Header />
+            <div className='w-full p-4 min-h-screen'>
+                <div className='flex items-start mt-10 gap-20'>
+                    <div className='grid gap-5 grid-cols-2 max-w-96'>
+                        <ul className='text-sm text-[#00000080] font-medium space-y-2'>
+                            <li className='flex items-center gap-2'> <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path fillRule="evenodd" clipRule="evenodd" d="M10.0019 10.392C10.0355 10.4284 10.0783 10.4551 10.1257 10.4691C10.1736 10.4832 10.2244 10.4841 10.2727 10.4718C10.3206 10.4594 10.3643 10.4344 10.3993 10.3994C10.4343 10.3644 10.4594 10.3207 10.4718 10.2728C10.484 10.2263 10.4831 10.1773 10.4694 10.1311C10.4544 10.0837 10.427 10.041 10.3901 10.0076L10.3849 10.0024L9.28665 8.90423C9.23214 8.85972 9.16378 8.83568 9.09341 8.83627C9.02531 8.83626 8.95994 8.86305 8.91143 8.91085C8.86219 8.95961 8.83314 9.02515 8.8301 9.09438C8.82706 9.16362 8.85024 9.23145 8.89503 9.28434L10.0013 10.3914L10.0019 10.392ZM6.78702 2.84692V1.30761C6.78703 1.30151 6.78736 1.29542 6.78799 1.28936C6.78737 1.23955 6.77477 1.19062 6.75126 1.1467C6.72874 1.10234 6.69447 1.06502 6.65219 1.03881C6.60925 1.0134 6.56027 1 6.51038 1C6.46049 1 6.41151 1.0134 6.36857 1.03881C6.32 1.06845 6.27972 1.1099 6.2515 1.15931C6.22559 1.20191 6.2121 1.2509 6.21256 1.30075L6.23436 2.83418C6.23877 2.90443 6.26988 2.97033 6.32131 3.01837C6.37275 3.06641 6.44061 3.09296 6.51099 3.09257C6.58171 3.09314 6.65002 3.06688 6.70215 3.0191C6.75058 2.97434 6.7808 2.9133 6.78702 2.84765V2.84692ZM2.85608 6.7863C2.92641 6.78211 2.99249 6.75122 3.0408 6.69994C3.08911 6.64865 3.11602 6.58086 3.11602 6.5104C3.11602 6.43995 3.08911 6.37215 3.0408 6.32087C2.99249 6.26959 2.92641 6.2387 2.85608 6.2345L1.27991 6.23352C1.23245 6.23143 1.18531 6.24235 1.14361 6.26512C1.10003 6.28961 1.06373 6.32523 1.03842 6.36835C1.01316 6.41121 0.999895 6.46007 1 6.50982C1.00011 6.55957 1.01358 6.60837 1.03902 6.65112C1.06446 6.69387 1.10092 6.729 1.1446 6.75283C1.18827 6.77665 1.23754 6.7883 1.28726 6.78655H2.85559L2.85608 6.7863ZM3.73656 4.10445C3.78943 4.14932 3.85729 4.17259 3.92657 4.16962C3.99586 4.16665 4.06147 4.13765 4.11031 4.08841C4.15699 4.04343 4.18394 3.98178 4.18525 3.91697C4.18472 3.84819 4.15937 3.78191 4.11386 3.73034L3.02054 2.60763C2.98669 2.57105 2.94357 2.54431 2.89575 2.53026C2.84793 2.5162 2.79719 2.51535 2.74893 2.52779C2.70098 2.54007 2.65726 2.56513 2.62243 2.60029L2.6152 2.60702C2.58375 2.64117 2.56132 2.68263 2.54993 2.72764C2.53503 2.78387 2.53402 2.84287 2.54699 2.89958C2.55645 2.94273 2.57843 2.98213 2.61018 3.01285L3.73681 4.10396L3.73656 4.10445ZM3.71366 8.90484L2.61569 10.0022L2.61043 10.0073C2.57896 10.0362 2.55654 10.0735 2.54589 10.1149C2.53416 10.1667 2.53551 10.2207 2.54981 10.2719V10.2726C2.56225 10.3205 2.58725 10.3642 2.62224 10.3992C2.65722 10.4341 2.70092 10.4591 2.74881 10.4716C2.80029 10.486 2.85454 10.4873 2.90666 10.4754C2.94798 10.4649 2.98532 10.4425 3.01405 10.411L4.12647 9.28434C4.16145 9.2451 4.18418 9.19648 4.19186 9.14448C4.19955 9.09248 4.19185 9.03936 4.16972 8.99168C4.14759 8.944 4.11199 8.90383 4.06732 8.87613C4.02264 8.84843 3.97084 8.8344 3.91829 8.83578C3.84443 8.83427 3.77231 8.85832 3.71415 8.90386L3.71366 8.90484ZM6.23448 11.7128C6.2328 11.7626 6.24451 11.812 6.2684 11.8557L6.2733 11.8657C6.29686 11.9049 6.32981 11.9377 6.36918 11.9611L6.37898 11.9673C6.42135 11.9897 6.4687 12.0009 6.5166 11.9999C6.5645 11.999 6.61137 11.9858 6.6528 11.9618C6.6965 11.9378 6.73344 11.9031 6.7602 11.861C6.78081 11.825 6.79056 11.7839 6.78824 11.7425L6.78738 10.1668C6.78337 10.0963 6.75245 10.0301 6.70102 9.98176C6.64959 9.93343 6.58157 9.90668 6.51099 9.90705C6.4356 9.9089 6.36365 9.93901 6.30942 9.99142C6.25474 10.0403 6.22042 10.1079 6.21329 10.1809L6.23448 11.7128ZM11.7345 6.78679C11.7842 6.78843 11.8334 6.77671 11.877 6.75287C11.9206 6.72902 11.957 6.69392 11.9825 6.65121C12.0079 6.6085 12.0214 6.55976 12.0216 6.51005C12.0218 6.46035 12.0087 6.4115 11.9836 6.3686C11.9571 6.32626 11.9195 6.292 11.8749 6.26953C11.8276 6.24438 11.7745 6.23201 11.7209 6.23365H11.714V6.23426H10.1534C10.0878 6.24051 10.0268 6.27067 9.98197 6.319C9.93394 6.37108 9.90746 6.43944 9.90788 6.51028C9.90763 6.58059 9.93428 6.64834 9.98236 6.69964C10.0304 6.75094 10.0963 6.7819 10.1665 6.78618H11.7347L11.7345 6.78679ZM9.28751 4.11572L10.3851 3.01812L10.3904 3.01297C10.4275 2.97765 10.4544 2.93292 10.4681 2.88353C10.4832 2.8325 10.4846 2.77839 10.4721 2.72666C10.4596 2.67876 10.4346 2.63504 10.3996 2.60004C10.3646 2.56504 10.3208 2.54001 10.2729 2.52755C10.2247 2.51507 10.174 2.51592 10.1262 2.53C10.0784 2.54408 10.0353 2.57087 10.0016 2.60751L8.88719 3.73022C8.84541 3.77843 8.82352 3.84072 8.82596 3.90447C8.83051 3.97428 8.8611 4.03983 8.91168 4.08816C8.96334 4.13999 9.03255 4.17058 9.10566 4.17388C9.17106 4.17736 9.23547 4.1568 9.28677 4.11608L9.28751 4.11572Z" fill="black" fillOpacity="0.5" stroke="black" strokeOpacity="0.5" strokeWidth="1.5" />
+                            </svg>Status</li>
+                            <li className='flex items-center gap-1'> <CalendarIcon height={18} width={18} strokeColor='#00000080' /> Date</li>
+
+                            <li className='flex items-center gap-1'> <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <g clipPath="url(#clip0_3831_20538)">
+                                    <path d="M11.625 9.75C14.3174 9.75 16.5 9.07843 16.5 8.25C16.5 7.42157 14.3174 6.75 11.625 6.75C8.93261 6.75 6.75 7.42157 6.75 8.25C6.75 9.07843 8.93261 9.75 11.625 9.75Z" stroke="black" strokeOpacity="0.5" strokeWidth="1.5" />
+                                    <path d="M16.5 11.625C16.5 12.4534 14.3174 13.125 11.625 13.125C8.93257 13.125 6.75 12.4534 6.75 11.625" stroke="black" strokeOpacity="0.5" strokeWidth="1.5" />
+                                    <path d="M16.5 8.25V14.85C16.5 15.7613 14.3174 16.5 11.625 16.5C8.93257 16.5 6.75 15.7613 6.75 14.85V8.25" stroke="black" strokeOpacity="0.5" strokeWidth="1.5" />
+                                    <path d="M6.37488 4.5C9.06727 4.5 11.2499 3.82843 11.2499 3C11.2499 2.17157 9.06727 1.5 6.37488 1.5C3.68249 1.5 1.49988 2.17157 1.49988 3C1.49988 3.82843 3.68249 4.5 6.37488 4.5Z" stroke="black" strokeOpacity="0.5" strokeWidth="1.5" />
+                                    <path d="M4.49988 8.25C3.08102 8.07735 1.77731 7.63088 1.49988 6.75M4.49988 12C3.08102 11.8274 1.77731 11.3809 1.49988 10.5" stroke="black" strokeOpacity="0.5" strokeWidth="1.5" strokeLinecap="round" />
+                                    <path d="M4.49988 15.751C3.08102 15.5783 1.77731 15.1319 1.49988 14.251V3.00098" stroke="black" strokeOpacity="0.5" strokeWidth="1.5" strokeLinecap="round" />
+                                    <path d="M11.25 4.50098V3.00098" stroke="black" strokeOpacity="0.5" strokeWidth="1.5" strokeLinecap="round" />
+                                </g>
+                                <defs>
+                                    <clipPath id="clip0_3831_20538">
+                                        <rect width="18" height="18" fill="white" />
+                                    </clipPath>
+                                </defs>
+                            </svg>
+                                Amount</li>
+                        </ul>
+
+                        <ul className='text-sm space-y-2'>
+                            <li><Chip variant={transaction.status}>{transaction.status}</Chip></li>
+                            <li> {moment(transaction.created_at).format('MMM DD, YYYY')}</li>
+                            <li> {"₦" + transaction.amount} </li>
+                        </ul>
+                    </div>
+                </div>
+                {children}
+            </div>
+        </>
+    )
+}
