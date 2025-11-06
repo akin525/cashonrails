@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, FormEvent } from "react";
+import React, { useState, useEffect, FormEvent, useCallback } from "react";
 import axiosInstance from '@/helpers/axiosInstance';
 import Header from "@/app/dashboard/cashier/payout-cashier/Header";
 import { useAuth } from "@/contexts/authContext";
@@ -31,34 +31,27 @@ export default function ManualDeposit() {
     const [loading, setLoading] = useState(false);
     const { authState } = useAuth();
     const [search, setSearch] = useState("");
-    const [error, setError] = useState<string | null>(null); // Fixed type for error state
-    const [businesses, setBusinesses] = useState<Business[]>([]); // Explicitly define businesses type
+    const [error, setError] = useState<string | null>(null);
+    const [businesses, setBusinesses] = useState<Business[]>([]);
     const [selectedBizId, setSelectedBizId] = useState("");
-    const [currency, setCurrency] = useState("NGN"); // Default currency is NGN
+    const [currency, setCurrency] = useState("NGN");
     const [transactionReference, setTransactionReference] = useState("");
+
+    // Fix 1: Add authState.token to dependencies
     useEffect(() => {
-        if (currency) {
+        if (currency && authState.token) {
             axiosInstance
                 .get(`/net/bank-list`, {
                     headers: { Authorization: `Bearer ${authState.token}` },
                 })
                 .then(response => setBankList(response.data.data as Bank[] || []))
                 .catch(err => console.error("Error fetching banks", err));
-
-            console.log(bankList);
         }
-    }, [currency]);
+    }, [currency, authState.token]); // Added authState.token
 
-
-    // Automatically verify account when account number reaches 10 digits
-    useEffect(() => {
-        if (accountNumber.length === 10 && bankCode) {
-            verifyAccount();
-        }
-    }, [accountNumber, bankCode]);
-
-    const verifyAccount = async () => {
-        if (!accountNumber || !bankCode) return;
+    // Fix 2: Wrap verifyAccount in useCallback and add it to dependencies
+    const verifyAccount = useCallback(async () => {
+        if (!accountNumber || !bankCode || !authState.token) return;
         setLoading(true);
         try {
             const response = await axiosInstance.get(
@@ -69,19 +62,26 @@ export default function ManualDeposit() {
             );
             setAccountName(response.data.data || "");
             setTransactionReference(response.data.transactionReference);
-
         } catch (err) {
             console.error("Error verifying account", err);
         } finally {
             setLoading(false);
         }
-    };
+    }, [accountNumber, bankCode, authState.token]); // Added dependencies
 
+    // Now verifyAccount can be safely added to useEffect dependencies
+    useEffect(() => {
+        if (accountNumber.length === 10 && bankCode) {
+            verifyAccount();
+        }
+    }, [accountNumber, bankCode, verifyAccount]); // Added verifyAccount
+
+    // Fix 3: Add authState.token to dependencies
     useEffect(() => {
         const debounceTime = 500;
 
         const fetchBusinesses = async () => {
-            if (search.trim()) {
+            if (search.trim() && authState.token) {
                 setLoading(true);
                 setError(null);
 
@@ -113,7 +113,7 @@ export default function ManualDeposit() {
 
         const timeoutId = setTimeout(fetchBusinesses, debounceTime);
         return () => clearTimeout(timeoutId);
-    }, [search]);
+    }, [search, authState.token]); // Added authState.token
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setSearch(e.target.value);
@@ -122,6 +122,7 @@ export default function ManualDeposit() {
     const handleBusinessSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
         setSelectedBizId(e.target.value);
     };
+
     const selectedBank = bankList.find((bank) => bank.identifier === bankCode);
 
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -156,6 +157,7 @@ export default function ManualDeposit() {
             setLoading(false);
         }
     };
+
     return (
         <div>
             <Header headerTitle={'NET Transfer'}/>
@@ -173,7 +175,7 @@ export default function ManualDeposit() {
                         <select value={bankCode} onChange={(e) => setBankCode(e.target.value)}
                                 className="w-full p-2 border rounded-md focus:ring-2 focus:ring-green-400" required>
                             <option value="">Select Bank</option>
-                            {bankList.map((bank: Bank) => ( // Fixed: Explicitly type bank
+                            {bankList.map((bank: Bank) => (
                                 <option key={bank.identifier} value={bank.identifier}>{bank.name}</option>
                             ))}
                         </select>
@@ -220,7 +222,6 @@ export default function ManualDeposit() {
                     </div>
                 </form>
             </div>
-
         </div>
     );
 }

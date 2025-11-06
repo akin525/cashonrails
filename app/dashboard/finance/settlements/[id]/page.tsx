@@ -54,45 +54,9 @@ const Page = ({ params }: { params: { id: string } }) => {
     const [isLoading, setIsLoading] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);
     const { authState } = useAuth()
-    const fetchDetails = async () => {
-        if (!authState.token) {
-            setIsLoading(false);
-            return;
-        }
 
-        try {
-            setIsLoading(true);
-            const response = await axiosInstance.get<SettlementDetails>(
-                `/finance/settlements/${params.id}`,
-                {
-                    headers: { Authorization: `Bearer ${authState.token}` },
-                }
-            );
 
-            if (response.data.status && response.data.data) {
-                setData(response.data.data);
-            } else {
-                throw new Error(response.data.message || 'Failed to fetch settlement details');
-            }
-        } catch (err) {
-            const message = err instanceof Error ? err.message : 'An error occurred';
-            setError(message);
-            handleAxiosError(error, (data) => {
-                toast.error(data);
-            });
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
-    useEffect(() => {
-        if (!authState.token) {
-            setIsLoading(false);
-            return;
-        }
-        fetchDetails()
-
-    }, [authState.token])
 
 
     return (

@@ -206,7 +206,7 @@ const Page = () => {
     const [data, setData] = useState<CombinedResponse | undefined>(undefined);
     const [loading, setLoading] = useState<boolean>(true);
     const [currentPage, setCurrentPage] = useState<number>(1);
-    const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 1, limit: 50 });
+    const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 1, limit: 10 });
     const [searchQuery, setSearchQuery] = useState<string>("");
     const [showModal, setShowModal] = useState(false);
     const [startDate, setStartDate] = useState("");
@@ -231,7 +231,8 @@ const Page = () => {
         status: typedFilterState.status,
         start_date: filterState.dateRange.startDate,
         end_date: filterState.dateRange.endDate,
-    }), [filterState]);
+    }), [typedFilterState.status, filterState.dateRange]);
+
 
     const fetchData = useCallback(async (page: number, search: string) => {
         if (!authState.token) return;

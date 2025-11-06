@@ -20,7 +20,10 @@ import Header from "./Header";
 const formatCurrency = (amount: number, currency: string) =>
     currency === "NGN"
         ? `₦${amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
-        : `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+        : currency === "KES"
+            ? `KSh${amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+            : `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+
 
 const StatCard = ({
                       title,
@@ -60,7 +63,7 @@ const StatCard = ({
 
 const end = new Date();
 const start = new Date();
-start.setMonth(end.getMonth() - 1);
+start.setDate(end.getDate() - 1);
 
 export default function OverviewDashboard() {
     const [data, setData] = useState<any>(null);
@@ -71,7 +74,7 @@ export default function OverviewDashboard() {
     const [endDate, setEndDate] = useState(end.toISOString().split("T")[0]);
     const { authState } = useAuth();
 
-    const currencies = ["USD", "NGN"];
+    const currencies = ["USD", "NGN", "KES"];
 
     const fetchData = async () => {
         setLoading(true);

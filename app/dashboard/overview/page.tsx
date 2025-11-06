@@ -151,7 +151,7 @@ const COLUMNS: Column<TableData>[] = [
         type: "custom",
         renderCustom: (row: TableData) => (
             <p>
-                {row.currency === 'NGN' ? '₦' : row.currency === 'USD' ? '$' : ''}
+                {row.currency === 'NGN' ? '₦' : row.currency === 'USD' ? '$' : row.currency === 'KES' ? 'KSh': row.currency === "USDT" ? 'USDT' : ''}
                 {Number(row.amount).toLocaleString()}
             </p>
         )
@@ -180,164 +180,258 @@ const COLUMNS: Column<TableData>[] = [
     },
 ];
 
+type Currency = 'NGN' | 'USD' | 'KES' | 'USDT' | 'ZAR' | 'XOF' | 'XAF';
 
+interface CurrencyData {
+    sumTransaction?: number;
+    totalTransactions?: number;
+    totalActiveBusiness?: number;
+    transactionFee?: number;
+    transactionSystemFee?: number;
+    payoutFee?: number;
+    payoutSystemFee?: number;
+    totalPayout?: number;
+    totalPayoutCount?: number;
+    transactionRevenue?: number;
+    payoutRevenue?: number;
+}
+
+interface GeneralData {
+    totalMerchant?: number;
+    totalBusiness?: number;
+}
+
+interface StatsData {
+    NGN?: CurrencyData;
+    USD?: CurrencyData;
+    KES?: CurrencyData;
+    USDT?: CurrencyData;
+    ZAR?: CurrencyData;
+    XOF?: CurrencyData;
+    XAF?: CurrencyData;
+    general?: GeneralData;
+}
+
+interface MetricCardData {
+    title: string;
+    count: string;
+}
+
+// Constants
+const CURRENCIES: Array<{ code: Currency; symbol: string; label: string }> = [
+    { code: 'NGN', symbol: '₦', label: 'NGN' },
+    { code: 'USD', symbol: '$', label: 'USD' },
+    { code: 'KES', symbol: 'KSh', label: 'KES' },
+    { code: 'USDT', symbol: 'USDT', label: 'USDT' },
+    { code: 'ZAR', symbol: 'R', label: 'ZAR' },
+    { code: 'XOF', symbol: 'CFA', label: 'XOF' },
+    { code: 'XAF', symbol: 'FCFA', label: 'XAF' },
+];
+
+const DEFAULT_DAYS_BACK = 7;
+const API_TIMEOUT = 900000;
+
+// Utility Functions
+const getDefaultDateRange = () => {
+    const endDate = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const startDate = yesterday.toISOString().slice(0, 10);
+    return { startDate, endDate };
+};
+
+
+const formatNumber = (amount: number): string => {
+    if (amount >= 1_000_000_000_000) return `${(amount / 1_000_000_000_000).toFixed(2)}T`;
+    if (amount >= 1_000_000_000) return `${(amount / 1_000_000_000).toFixed(2)}B`;
+    if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(2)}M`;
+    if (amount >= 1_000) return `${(amount / 1_000).toFixed(2)}K`;
+    return amount.toLocaleString();
+};
+
+const getCurrencySymbol = (currency: Currency): string => {
+    return CURRENCIES.find((c) => c.code === currency)?.symbol || '';
+};
+
+// Custom Hook for Stats
+const usePaymentStats = (authToken: string | null) => {
+    const [statsData, setStatsData] = useState<StatsData>({});
+    const [loadingCards, setLoadingCards] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const fetchStats = useCallback(
+        async (startDate: string, endDate: string) => {
+            if (!authToken) return;
+
+            setLoadingCards(true);
+            setError(null);
+
+            try {
+                const response = await axiosInstance.get('/overview', {
+                    params: { start_date: startDate, end_date: endDate },
+                    headers: { Authorization: `Bearer ${authToken}` },
+                    timeout: API_TIMEOUT,
+                });
+                setStatsData(response.data?.data || {});
+            } catch (err) {
+                console.error('Error fetching stats:', err);
+                setError('Failed to fetch statistics. Please try again.');
+            } finally {
+                setLoadingCards(false);
+            }
+        },
+        [authToken]
+    );
+
+    return { statsData, loadingCards, error, fetchStats };
+};
 // Main component to render all cards
 const PaymentCards: React.FC = () => {
     const router = useRouter();
     const { authState } = useAuth();
     const { setShowSearchQuery, filterState } = useUI();
-    const [loadingCards, setLoadingCards] = useState(true);
-    const [statsData, setStatsData] = useState<any>({});
-    const [currency, setCurrency] = useState<"NGN" | "USD">("NGN");
-    // const userRole = authState.userDetails?.role || "admin"; // Default to "admin" if undefined
 
-    // Local state for date selection
-    const [startDate, setStartDate] = useState<string>(() =>
-        filterState.dateRange?.startDate ||
-        new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    const defaultDates = getDefaultDateRange();
+    const [currency, setCurrency] = useState<Currency>('NGN');
+    const [startDate, setStartDate] = useState<string>(
+        filterState.dateRange?.startDate || defaultDates.startDate
+    );
+    const [endDate, setEndDate] = useState<string>(
+        filterState.dateRange?.endDate || defaultDates.endDate
     );
 
-    const [endDate, setEndDate] = useState<string>(() =>
-        filterState.dateRange?.endDate || new Date().toISOString().slice(0, 10)
-    );
+    const { statsData, loadingCards, error, fetchStats } = usePaymentStats(authState.token);
 
-
-    const queryParams = useMemo(
-        () => ({
-            start_date: startDate,
-            end_date: endDate,
-        }),
-        [startDate, endDate]
-    );
-
-    const fetchStats = useCallback(async () => {
-        if (!authState.token) return;
-        setLoadingCards(true);
-        try {
-            const response = await axiosInstance.get("/overview", {
-                params: queryParams,
-                headers: { Authorization: `Bearer ${authState.token}` },
-                timeout: 900000,
-            });
-            setStatsData(response.data?.data);
-        } catch (error) {
-            console.error("Error fetching data:", error);
-        } finally {
-            setLoadingCards(false);
-        }
-    }, [authState.token, queryParams]);
-
+    // Fetch stats on mount and when dates change
     useEffect(() => {
-        fetchStats();
-    }, [fetchStats]);
+        fetchStats(startDate, endDate);
+    }, [fetchStats, startDate, endDate]);
 
+    // Hide search query on mount/unmount
     useEffect(() => {
         setShowSearchQuery(false);
         return () => setShowSearchQuery(false);
     }, [setShowSearchQuery]);
 
-    const formatNumber = (amount: number): string => {
-        if (amount >= 1_000_000_000_000) return (amount / 1_000_000_000_000).toFixed(2) + "T";
-        if (amount >= 1_000_000_000) return (amount / 1_000_000_000).toFixed(2) + "B";
-        if (amount >= 1_000_000) return (amount / 1_000_000).toFixed(2) + "M";
-        if (amount >= 1_000) return (amount / 1_000).toFixed(2) + "K";
-        return amount.toLocaleString();
+    // Prepare card data
+    const cards: MetricCardData[] = useMemo(() => {
+        const currentCurrencyData = statsData?.[currency] || {};
+        const generalData = statsData?.general || {};
+        const symbol = getCurrencySymbol(currency);
+
+        return [
+            { title: 'Sum Transactions', count: `${symbol}${formatNumber(currentCurrencyData.sumTransaction || 0)}` },
+            { title: 'Total Transactions', count: formatNumber(currentCurrencyData.totalTransactions || 0) },
+            { title: 'Total Active Business', count: formatNumber(currentCurrencyData.totalActiveBusiness || 0) },
+            { title: 'Transaction Fee', count: `${symbol}${formatNumber(currentCurrencyData.transactionFee || 0)}` },
+            { title: 'Transaction System Fee', count: `${symbol}${formatNumber(currentCurrencyData.transactionSystemFee || 0)}` },
+            { title: 'Payout Fee', count: `${symbol}${formatNumber(currentCurrencyData.payoutFee || 0)}` },
+            { title: 'Payout System Fee', count: `${symbol}${formatNumber(currentCurrencyData.payoutSystemFee || 0)}` },
+            { title: 'Total Merchants', count: formatNumber(generalData.totalMerchant || 0) },
+            { title: 'Total Business', count: formatNumber(generalData.totalBusiness || 0) },
+            { title: 'Total Payout', count: `${symbol}${formatNumber(currentCurrencyData.totalPayout || 0)}` },
+            { title: 'Total Payout (Count)', count: formatNumber(currentCurrencyData.totalPayoutCount || 0) },
+            { title: 'Transaction Revenue', count: `${symbol}${formatNumber(currentCurrencyData.transactionRevenue || 0)}` },
+            { title: 'Payout Revenue', count: `${symbol}${formatNumber(currentCurrencyData.payoutRevenue || 0)}` },
+        ];
+    }, [statsData, currency]);
+
+    const handleApplyDateRange = () => {
+        fetchStats(startDate, endDate);
     };
 
-    const currentCurrencyData = statsData?.[currency] || {};
-    const generalData = statsData?.general || {};
-    const currencySymbol = currency === "NGN" ? "₦" : "$";
-
-    const cards = [
-        { title: "Sum Transactions", count: currencySymbol + formatNumber(currentCurrencyData?.sumTransaction || 0) },
-        { title: "Total Transactions", count: formatNumber(currentCurrencyData?.totalTransactions || 0) },
-        { title: "Total Active Business", count: formatNumber(currentCurrencyData?.totalActiveBusiness || 0) },
-        { title: "Transaction Fee", count: currencySymbol + formatNumber(currentCurrencyData?.transactionFee || 0) },
-        { title: "Transaction System Fee", count: currencySymbol + formatNumber(currentCurrencyData?.transactionSystemFee || 0) },
-        { title: "Payout Fee", count: currencySymbol + formatNumber(currentCurrencyData?.payoutFee || 0) },
-        { title: "Payout System Fee", count: currencySymbol + formatNumber(currentCurrencyData?.payoutSystemFee || 0) },
-        { title: "Total Merchants", count: formatNumber(generalData?.totalMerchant || 0) },
-        { title: "Total Business", count: formatNumber(generalData?.totalBusiness || 0) },
-        { title: "Total Payout", count: currencySymbol + formatNumber(currentCurrencyData?.totalPayout || 0) },
-        { title: "Total Payout (Count)", count: formatNumber(currentCurrencyData?.totalPayoutCount || 0) },
-        // { title: "Total Payin", count: currencySymbol + formatNumber(currentCurrencyData?.totalPayin || 0) },
-        // { title: "Total Payin (Count)", count: formatNumber(currentCurrencyData?.totalPayinCount || 0) },
-        // { title: "Total Payin Fee", count: currencySymbol + formatNumber(currentCurrencyData?.totalPayinFee || 0) },
-        // { title: "Total Checkouts", count: currencySymbol + formatNumber(currentCurrencyData?.totalCheckout || 0) },
-        // { title: "Total Checkouts (Count)", count: formatNumber(currentCurrencyData?.totalCheckoutCount || 0) },
-        // { title: "Total Checkout Fee", count: currencySymbol + formatNumber(currentCurrencyData?.totalCheckoutFee || 0) },
-        { title: "Transaction Revenue", count: currencySymbol + formatNumber(currentCurrencyData?.transactionRevenue || 0) },
-        { title: "Payout Revenue", count: currencySymbol + formatNumber(currentCurrencyData?.payoutRevenue || 0) },
-        // { title: "Collection Revenue", count: currencySymbol + formatNumber(currentCurrencyData?.collectionRevenue || 0) },
-    ];
-
     return (
-        <div className="p-4">
-            {/* Top Controls */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
-                {/* Refresh and Currency */}
+        <div className="p-4 space-y-4">
+            {/* Controls Section */}
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                {/* Refresh & Currency Selector */}
                 <div className="flex flex-wrap items-center gap-2">
                     <button
-                        onClick={fetchStats}
-                        className="flex items-center px-4 py-2 text-sm font-semibold text-white bg-green-400 rounded-md hover:bg-green-700"
+                        onClick={() => fetchStats(startDate, endDate)}
+                        disabled={loadingCards}
+                        className="flex items-center px-4 py-2 text-sm font-semibold text-white bg-green-500 rounded-md hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        aria-label="Refresh statistics"
                     >
-                        <FiRefreshCcw className="mr-2" />
+                        <FiRefreshCcw className={`mr-2 ${loadingCards ? 'animate-spin' : ''}`} />
                         Refresh
                     </button>
 
-                    <button
-                        onClick={() => setCurrency("NGN")}
-                        className={`px-3 py-1 rounded ${currency === "NGN" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800"}`}
-                    >
-                        ₦ NGN
-                    </button>
-                    <button
-                        onClick={() => setCurrency("USD")}
-                        className={`px-3 py-1 rounded ${currency === "USD" ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800"}`}
-                    >
-                        $ USD
-                    </button>
+                    {CURRENCIES.map(({ code, symbol, label }) => (
+                        <button
+                            key={code}
+                            onClick={() => setCurrency(code)}
+                            className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
+                                currency === code
+                                    ? 'bg-green-600 text-white shadow-sm'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                            aria-label={`Select ${label} currency`}
+                        >
+                            {symbol} {label}
+                        </button>
+                    ))}
                 </div>
 
                 {/* Date Range Picker */}
-                <div className="flex flex-wrap items-center gap-2">
-                    <label className="text-sm text-gray-600">Start:</label>
+                <div className="flex flex-wrap items-center gap-2 bg-gray-50 p-2 rounded-lg">
+                    <label htmlFor="start-date" className="text-sm font-medium text-gray-700">
+                        Start:
+                    </label>
                     <input
+                        id="start-date"
                         type="date"
-                        className="border rounded px-2 py-1 text-sm"
+                        className="border border-gray-300 rounded px-3 py-1.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
+                        max={endDate}
                     />
 
-                    <label className="text-sm text-gray-600">End:</label>
+                    <label htmlFor="end-date" className="text-sm font-medium text-gray-700">
+                        End:
+                    </label>
                     <input
+                        id="end-date"
                         type="date"
-                        className="border rounded px-2 py-1 text-sm"
+                        className="border border-gray-300 rounded px-3 py-1.5 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
                         value={endDate}
                         onChange={(e) => setEndDate(e.target.value)}
+                        min={startDate}
+                        max={new Date().toISOString().slice(0, 10)}
                     />
 
                     <button
-                        onClick={fetchStats}
-                        className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                        onClick={handleApplyDateRange}
+                        disabled={loadingCards}
+                        className="px-4 py-1.5 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 disabled:opacity-50 transition-colors"
                     >
                         Apply
                     </button>
                 </div>
             </div>
 
-            {/* Display selected range */}
-            <p className="text-sm text-gray-600 mb-4">
-                Showing stats from <strong>{new Date(startDate).toLocaleDateString()}</strong> to{" "}
-                <strong>{new Date(endDate).toLocaleDateString()}</strong>
-            </p>
+            {/* Date Range Display */}
+            <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-600">
+                    Showing stats from <strong>{new Date(startDate).toLocaleDateString()}</strong> to{' '}
+                    <strong>{new Date(endDate).toLocaleDateString()}</strong>
+                </p>
+                {error && (
+                    <p className="text-sm text-red-600 bg-red-50 px-3 py-1 rounded" role="alert">
+                        {error}
+                    </p>
+                )}
+            </div>
 
             {/* Cards Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {cards.map((card, index) => (
-                    <div key={index} className="relative group">
-                        <MetricCard count={card.count} title={card.title} isLoading={loadingCards} variant="success" />
-                    </div>
+                    <MetricCard
+                        key={`${card.title}-${index}`}
+                        count={card.count}
+                        title={card.title}
+                        isLoading={loadingCards}
+                        variant="success"
+                    />
                 ))}
             </div>
         </div>
@@ -360,7 +454,7 @@ export default function Homepage() {
     const [data, setData] = useState<Response | undefined>(undefined);
     const [loading, setLoading] = useState<boolean>(true);
     const [currentPage, setCurrentPage] = useState<number>(1);
-    const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 1, limit: 20 });
+    const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 1, limit: 10 });
 
     const fetchData = useCallback(async (page: number) => {
         if (!authState.token) return;

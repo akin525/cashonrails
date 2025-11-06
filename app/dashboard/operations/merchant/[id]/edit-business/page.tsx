@@ -1,9 +1,34 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/authContext";
+import { useTheme } from "next-themes";
 import axiosInstance from "@/helpers/axiosInstance";
 import toast from "react-hot-toast";
-import { Building, Settings, PhoneCall, Save } from "lucide-react";
+import {
+  Building2,
+  Settings,
+  Phone,
+  Save,
+  Mail,
+  Globe,
+  MapPin,
+  CreditCard,
+  Shield,
+  Calendar,
+  Hash,
+  FileText,
+  AlertCircle,
+  CheckCircle,
+  Loader2,
+  Eye,
+  EyeOff,
+  Copy,
+  ExternalLink,
+  Info,
+  Briefcase,
+  Users,
+  DollarSign
+} from "lucide-react";
 
 interface BusinessInfo {
   name: string;
@@ -36,39 +61,119 @@ interface BusinessInfo {
   feeBearer: string;
   payout_limit_per_trans: string;
   status: string;
-
-  // Credentials
   test_webhook_url?: string;
   live_webhook_url?: string;
   live_callback_url?: string;
   test_callback_url?: string;
 }
 
-const InputField = ({ label, name, value, onChange, type = "text" }: any) => (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+const InputField = ({
+                      label,
+                      name,
+                      value,
+                      onChange,
+                      type = "text",
+                      placeholder = "",
+                      required = false,
+                      icon: Icon,
+                      description = "",
+                      error = ""
+                    }: any) => (
+    <div className="space-y-2">
+      <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+        {Icon && <Icon className="w-4 h-4 text-gray-400" />}
         {label}
+        {required && <span className="text-red-500">*</span>}
       </label>
-      <input
-          type={type}
-          name={name}
-          value={value}
-          onChange={onChange}
-          className="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-      />
+      <div className="relative">
+        <input
+            type={type}
+            name={name}
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder}
+            className={`w-full px-4 py-3 bg-white dark:bg-gray-800 border rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                error
+                    ? 'border-red-300 dark:border-red-600'
+                    : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+            }`}
+        />
+        {type === "url" && value && (
+            <button
+                type="button"
+                onClick={() => window.open(value, '_blank')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-500 transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </button>
+        )}
+      </div>
+      {description && (
+          <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+            <Info className="w-3 h-3" />
+            {description}
+          </p>
+      )}
+      {error && (
+          <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+            <AlertCircle className="w-3 h-3" />
+            {error}
+          </p>
+      )}
     </div>
 );
 
-const SelectField = ({ label, name, value, onChange, options }: any) => (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+const TextAreaField = ({
+                         label,
+                         name,
+                         value,
+                         onChange,
+                         placeholder = "",
+                         rows = 3,
+                         icon: Icon,
+                         description = ""
+                       }: any) => (
+    <div className="space-y-2">
+      <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+        {Icon && <Icon className="w-4 h-4 text-gray-400" />}
+        {label}
+      </label>
+      <textarea
+          name={name}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          rows={rows}
+          className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-gray-400 dark:hover:border-gray-500 resize-none"
+      />
+      {description && (
+          <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+            <Info className="w-3 h-3" />
+            {description}
+          </p>
+      )}
+    </div>
+);
+
+const SelectField = ({
+                       label,
+                       name,
+                       value,
+                       onChange,
+                       options,
+                       icon: Icon,
+                       description = ""
+                     }: any) => (
+    <div className="space-y-2">
+      <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+        {Icon && <Icon className="w-4 h-4 text-gray-400" />}
         {label}
       </label>
       <select
           name={name}
           value={value}
           onChange={onChange}
-          className="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg"
+          className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-gray-400 dark:hover:border-gray-500"
       >
         {options.map((opt: any) => (
             <option key={opt.value} value={opt.value}>
@@ -76,25 +181,94 @@ const SelectField = ({ label, name, value, onChange, options }: any) => (
             </option>
         ))}
       </select>
+      {description && (
+          <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+            <Info className="w-3 h-3" />
+            {description}
+          </p>
+      )}
     </div>
 );
 
-const Section = ({ icon: Icon, title, children }: any) => (
-    <div className="mb-8">
-      <div className="flex items-center gap-2 mb-4">
-        <Icon className="text-green-600" size={20} />
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{title}</h3>
+const Section = ({
+                   icon: Icon,
+                   title,
+                   description = "",
+                   children,
+                   className = ""
+                 }: any) => (
+    <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 ${className}`}>
+      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-750 rounded-t-xl">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+            <Icon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">{title}</h3>
+            {description && (
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{description}</p>
+            )}
+          </div>
+        </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">{children}</div>
+      <div className="p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">{children}</div>
+      </div>
+    </div>
+);
+
+const PaymentMethodCard = ({
+                             method,
+                             isSelected,
+                             onToggle,
+                             icon: Icon
+                           }: {
+  method: string;
+  isSelected: boolean;
+  onToggle: () => void;
+  icon: React.ComponentType<any>;
+}) => (
+    <div
+        onClick={onToggle}
+        className={`relative p-4 rounded-lg border-2 cursor-pointer transition-all ${
+            isSelected
+                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800'
+        }`}
+    >
+      <div className="flex items-center gap-3">
+        <Icon className={`w-5 h-5 ${isSelected ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`} />
+        <span className={`font-medium capitalize ${
+            isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'
+        }`}>
+        {method}
+      </span>
+      </div>
+      {isSelected && (
+          <div className="absolute top-2 right-2">
+            <CheckCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          </div>
+      )}
+    </div>
+);
+
+const LoadingSpinner = () => (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <div className="text-center">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+        <p className="text-gray-600 dark:text-gray-400">Loading business information...</p>
+      </div>
     </div>
 );
 
 const EditBusinessPage = ({ params }: { params: { id: string } }) => {
   const { authState } = useAuth();
+  const { theme } = useTheme();
   const [formData, setFormData] = useState<BusinessInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingBusiness, setSavingBusiness] = useState(false);
   const [savingCredentials, setSavingCredentials] = useState(false);
+  const [activeTab, setActiveTab] = useState('business');
 
   useEffect(() => {
     const fetchBusiness = async () => {
@@ -136,15 +310,14 @@ const EditBusinessPage = ({ params }: { params: { id: string } }) => {
           feeBearer: data.feeBearer || "merchant",
           payout_limit_per_trans: data.payout_limit_per_trans || "",
           status: data.status || "active",
-
-          // Credentials
-          test_webhook_url: data.credential.test_webhook_url || "",
-          live_webhook_url: data.credential.live_webhook_url || "",
-          live_callback_url: data.credential.live_callback_url || "",
-          test_callback_url: data.credential.test_callback_url || "",
+          test_webhook_url: data.credential?.test_webhook_url || "",
+          live_webhook_url: data.credential?.live_webhook_url || "",
+          live_callback_url: data.credential?.live_callback_url || "",
+          test_callback_url: data.credential?.test_callback_url || "",
         });
-      } catch {
-        toast.error("Failed to load business info");
+      } catch (error) {
+        toast.error("Failed to load business information");
+        console.error("Error fetching business data:", error);
       } finally {
         setLoading(false);
       }
@@ -153,12 +326,12 @@ const EditBusinessPage = ({ params }: { params: { id: string } }) => {
     if (authState?.token) fetchBusiness();
   }, [params.id, authState?.token]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     if (formData) setFormData({ ...formData, [name]: value });
   };
 
-  const handleCheckbox = (method: string) => {
+  const handlePaymentMethodToggle = (method: string) => {
     if (!formData) return;
     const exists = formData.paymentMethod.includes(method);
     const updated = exists
@@ -182,10 +355,11 @@ const EditBusinessPage = ({ params }: { params: { id: string } }) => {
         headers: { Authorization: `Bearer ${authState?.token}` },
       });
 
-      toast.success(res.data.message || "Business updated");
-    } catch {
-      toast.error("Update failed");
-    }finally {
+      toast.success(res.data.message || "Business information updated successfully");
+    } catch (error) {
+      toast.error("Failed to update business information");
+      console.error("Error updating business:", error);
+    } finally {
       setSavingBusiness(false);
     }
   };
@@ -206,104 +380,356 @@ const EditBusinessPage = ({ params }: { params: { id: string } }) => {
         headers: { Authorization: `Bearer ${authState?.token}` },
       });
 
-      toast.success(res.data.message || "Credentials updated");
-    } catch {
-      toast.error("Credential update failed");
+      toast.success(res.data.message || "Credentials updated successfully");
+    } catch (error) {
+      toast.error("Failed to update credentials");
+      console.error("Error updating credentials:", error);
     } finally {
       setSavingCredentials(false);
     }
   };
 
-  if (loading) return <div className="p-8 text-gray-500">Loading...</div>;
-  if (!formData) return <div className="p-8 text-red-500">No data found</div>;
+  const paymentMethods = [
+    { name: 'card', icon: CreditCard },
+    { name: 'transfer', icon: Building2 },
+    { name: 'ussd', icon: Phone },
+    { name: 'wallet', icon: DollarSign },
+    { name: 'phone', icon: Phone }
+  ];
+
+  if (loading) return <LoadingSpinner />;
+
+  if (!formData) {
+    return (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              No Data Found
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              Unable to load business information for this merchant.
+            </p>
+          </div>
+        </div>
+    );
+  }
 
   return (
-      <div className="max-w-5xl mx-auto p-8 bg-white dark:bg-gray-900 shadow-xl rounded-lg">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-8">Edit Business</h1>
-        <form onSubmit={handleSubmit} className="space-y-10">
-          {/* Business Info */}
-          <Section icon={Building} title="Business Information">
-            <InputField name="name" label="Legal Name" value={formData.name} onChange={handleChange} />
-            <InputField name="trade_name" label="Trade Name" value={formData.trade_name} onChange={handleChange} />
-            <InputField name="description" label="Description" value={formData.description} onChange={handleChange} />
-            <InputField name="rcNumber" label="RC Number" value={formData.rcNumber} onChange={handleChange} />
-            <InputField name="incorporationDate" type="date" label="Incorporation Date" value={formData.incorporationDate} onChange={handleChange} />
-            <InputField name="biz_url" label="Website" value={formData.biz_url} onChange={handleChange} />
-            <InputField name="biz_bvn" label="BVN" value={formData.biz_bvn} onChange={handleChange} />
-            <InputField name="biz_bvn_dob" label="BVN DOB" type="date" value={formData.biz_bvn_dob} onChange={handleChange} />
-            <InputField name="biz_city" label="City" value={formData.biz_city} onChange={handleChange} />
-            <InputField name="biz_address" label="Address" value={formData.biz_address} onChange={handleChange} />
-          </Section>
-
-          {/* Contact */}
-          <Section icon={PhoneCall} title="Contact & Support">
-            <InputField name="biz_email" label="Business Email" value={formData.biz_email} onChange={handleChange} />
-            <InputField name="biz_phone" label="Business Phone" value={formData.biz_phone} onChange={handleChange} />
-            <InputField name="support_email" label="Support Email" value={formData.support_email} onChange={handleChange} />
-            <InputField name="support_phone" label="Support Phone" value={formData.support_phone} onChange={handleChange} />
-            <InputField name="chargeback_email" label="Chargeback Email" value={formData.chargeback_email} onChange={handleChange} />
-          </Section>
-
-          {/* Payment Settings */}
-          <Section icon={Settings} title="Payment Settings">
-            <SelectField name="feeBearer" label="Fee Bearer" value={formData.feeBearer} onChange={handleChange}
-                         options={[{ value: "merchant", label: "Merchant" }, { value: "customer", label: "Customer" }]} />
-            <SelectField name="defautPaymentMethod" label="Default Method" value={formData.defautPaymentMethod} onChange={handleChange}
-                         options={["card", "transfer", "ussd", "wallet", "phone"].map((p) => ({ value: p, label: p }))} />
-            <InputField name="payout_limit_per_trans" label="Payout Limit per Transaction" value={formData.payout_limit_per_trans} onChange={handleChange} />
-            <div>
-              <label className="block text-sm font-medium text-gray-800 dark:text-gray-300 mb-2">Allowed Payment Methods</label>
-              <div className="flex flex-wrap gap-4">
-                {["card", "transfer", "ussd", "wallet", "phone"].map((method) => (
-                    <label key={method} className="flex items-center space-x-2 text-gray-700 dark:text-gray-300">
-                      <input
-                          type="checkbox"
-                          checked={formData.paymentMethod.includes(method)}
-                          onChange={() => handleCheckbox(method)}
-                          className="form-checkbox"
-                      />
-                      <span className="capitalize">{method}</span>
-                    </label>
-                ))}
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="mb-8">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-xl flex items-center justify-center text-white font-bold text-lg">
+                  <Building2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                    Edit Business Information
+                  </h1>
+                  <p className="text-gray-600 dark:text-gray-400 mt-1">
+                    Update business details, contact information, and payment settings
+                  </p>
+                </div>
               </div>
             </div>
-          </Section>
-
-          {/* Credential Settings */}
-          <Section icon={Settings} title="Credential Settings">
-            <InputField name="test_webhook_url" label="Test Webhook URL" value={formData.test_webhook_url || ""} onChange={handleChange} />
-            <InputField name="live_webhook_url" label="live Webhook URL" value={formData.live_webhook_url || ""} onChange={handleChange} />
-            <InputField name="live_callback_url" label="Live Callback URL" value={formData.live_callback_url || ""} onChange={handleChange} />
-            <InputField name="test_callback_url" label="Test Callback URL" value={formData.test_callback_url || ""} onChange={handleChange} />
-          </Section>
-
-          {/* Action Buttons */}
-          <div className="flex justify-end gap-4">
-            <button
-                type="submit"
-                disabled={savingBusiness}
-                className={`inline-flex items-center gap-2 px-6 py-3 rounded-lg font-medium shadow transition-all ${
-                    savingBusiness ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'
-                }`}
-            >
-              <Save size={18}/>
-              {savingBusiness ? 'Saving...' : 'Save Business Changes'}
-            </button>
-
-            <button
-                type="button"
-                disabled={savingCredentials}
-                onClick={handleCredentialUpdate}
-                className={`inline-flex items-center gap-2 px-6 py-3 rounded-lg font-medium shadow transition-all ${
-                    savingCredentials ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'
-                }`}
-            >
-              <Save size={18}/>
-              {savingCredentials ? 'Updating...' : 'Update Credentials'}
-            </button>
-
           </div>
-        </form>
+
+          <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Business Information */}
+            <Section
+                icon={Building2}
+                title="Business Information"
+                description="Basic business details and registration information"
+            >
+              <InputField
+                  name="name"
+                  label="Legal Business Name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  icon={Building2}
+                  placeholder="Enter legal business name"
+                  required
+              />
+              <InputField
+                  name="trade_name"
+                  label="Trade Name"
+                  value={formData.trade_name}
+                  onChange={handleChange}
+                  icon={Briefcase}
+                  placeholder="Enter trade name"
+                  required
+              />
+              <div className="lg:col-span-2">
+                <TextAreaField
+                    name="description"
+                    label="Business Description"
+                    value={formData.description}
+                    onChange={handleChange}
+                    icon={FileText}
+                    placeholder="Describe your business activities..."
+                    description="Brief description of your business activities and services"
+                />
+              </div>
+              <InputField
+                  name="rcNumber"
+                  label="RC Number"
+                  value={formData.rcNumber}
+                  onChange={handleChange}
+                  icon={Hash}
+                  placeholder="Enter registration number"
+              />
+              <InputField
+                  name="incorporationDate"
+                  label="Incorporation Date"
+                  type="date"
+                  value={formData.incorporationDate}
+                  onChange={handleChange}
+                  icon={Calendar}
+              />
+              <InputField
+                  name="biz_url"
+                  label="Website URL"
+                  type="url"
+                  value={formData.biz_url}
+                  onChange={handleChange}
+                  icon={Globe}
+                  placeholder="https://example.com"
+              />
+              <InputField
+                  name="biz_bvn"
+                  label="Business BVN"
+                  value={formData.biz_bvn}
+                  onChange={handleChange}
+                  icon={Hash}
+                  placeholder="Enter BVN"
+              />
+            </Section>
+
+            {/* Contact Information */}
+            <Section
+                icon={Phone}
+                title="Contact & Support Information"
+                description="Business contact details and support channels"
+            >
+              <InputField
+                  name="biz_email"
+                  label="Business Email"
+                  type="email"
+                  value={formData.biz_email}
+                  onChange={handleChange}
+                  icon={Mail}
+                  placeholder="business@example.com"
+              />
+              <InputField
+                  name="biz_phone"
+                  label="Business Phone"
+                  type="tel"
+                  value={formData.biz_phone}
+                  onChange={handleChange}
+                  icon={Phone}
+                  placeholder="+234 xxx xxx xxxx"
+              />
+              <InputField
+                  name="support_email"
+                  label="Support Email"
+                  type="email"
+                  value={formData.support_email}
+                  onChange={handleChange}
+                  icon={Mail}
+                  placeholder="support@example.com"
+              />
+              <InputField
+                  name="support_phone"
+                  label="Support Phone"
+                  type="tel"
+                  value={formData.support_phone}
+                  onChange={handleChange}
+                  icon={Phone}
+                  placeholder="+234 xxx xxx xxxx"
+              />
+              <InputField
+                  name="chargeback_email"
+                  label="Chargeback Email"
+                  type="email"
+                  value={formData.chargeback_email}
+                  onChange={handleChange}
+                  icon={Mail}
+                  placeholder="chargeback@example.com"
+              />
+            </Section>
+
+            {/* Address Information */}
+            <Section
+                icon={MapPin}
+                title="Address Information"
+                description="Business location and address details"
+            >
+              <InputField
+                  name="biz_city"
+                  label="City"
+                  value={formData.biz_city}
+                  onChange={handleChange}
+                  icon={MapPin}
+                  placeholder="Enter city"
+              />
+              <InputField
+                  name="biz_state"
+                  label="State"
+                  value={formData.biz_state}
+                  onChange={handleChange}
+                  icon={MapPin}
+                  placeholder="Enter state"
+              />
+              <div className="lg:col-span-2">
+                <TextAreaField
+                    name="biz_address"
+                    label="Business Address"
+                    value={formData.biz_address}
+                    onChange={handleChange}
+                    icon={MapPin}
+                    placeholder="Enter complete business address"
+                />
+              </div>
+            </Section>
+
+            {/* Payment Settings */}
+            <Section
+                icon={CreditCard}
+                title="Payment Settings"
+                description="Configure payment methods and transaction settings"
+            >
+              <SelectField
+                  name="feeBearer"
+                  label="Fee Bearer"
+                  value={formData.feeBearer}
+                  onChange={handleChange}
+                  icon={DollarSign}
+                  options={[
+                    { value: "merchant", label: "Merchant" },
+                    { value: "customer", label: "Customer" }
+                  ]}
+                  description="Who bears the transaction fees"
+              />
+              <SelectField
+                  name="defautPaymentMethod"
+                  label="Default Payment Method"
+                  value={formData.defautPaymentMethod}
+                  onChange={handleChange}
+                  icon={CreditCard}
+                  options={paymentMethods.map((p) => ({ value: p.name, label: p.name.charAt(0).toUpperCase() + p.name.slice(1) }))}
+              />
+              <InputField
+                  name="payout_limit_per_trans"
+                  label="Payout Limit per Transaction"
+                  type="number"
+                  value={formData.payout_limit_per_trans}
+                  onChange={handleChange}
+                  icon={DollarSign}
+                  placeholder="Enter amount"
+              />
+
+              <div className="lg:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+                  Allowed Payment Methods
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                  {paymentMethods.map((method) => (
+                      <PaymentMethodCard
+                          key={method.name}
+                          method={method.name}
+                          isSelected={formData.paymentMethod.includes(method.name)}
+                          onToggle={() => handlePaymentMethodToggle(method.name)}
+                          icon={method.icon}
+                      />
+                  ))}
+                </div>
+              </div>
+            </Section>
+
+            {/* Webhook & API Settings */}
+            <Section
+                icon={Shield}
+                title="Webhook & API Settings"
+                description="Configure webhook URLs and callback endpoints"
+            >
+              <InputField
+                  name="test_webhook_url"
+                  label="Test Webhook URL"
+                  type="url"
+                  value={formData.test_webhook_url || ""}
+                  onChange={handleChange}
+                  icon={Globe}
+                  placeholder="https://test.example.com/webhook"
+                  description="Webhook URL for test environment"
+              />
+              <InputField
+                  name="live_webhook_url"
+                  label="Live Webhook URL"
+                  type="url"
+                  value={formData.live_webhook_url || ""}
+                  onChange={handleChange}
+                  icon={Globe}
+                  placeholder="https://example.com/webhook"
+                  description="Webhook URL for production environment"
+              />
+              <InputField
+                  name="test_callback_url"
+                  label="Test Callback URL"
+                  type="url"
+                  value={formData.test_callback_url || ""}
+                  onChange={handleChange}
+                  icon={Globe}
+                  placeholder="https://test.example.com/callback"
+                  description="Callback URL for test environment"
+              />
+              <InputField
+                  name="live_callback_url"
+                  label="Live Callback URL"
+                  type="url"
+                  value={formData.live_callback_url || ""}
+                  onChange={handleChange}
+                  icon={Globe}
+                  placeholder="https://example.com/callback"
+                  description="Callback URL for production environment"
+              />
+            </Section>
+
+            {/* Action Buttons */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <div className="flex flex-col sm:flex-row gap-4 justify-end">
+                <button
+                    type="button"
+                    disabled={savingCredentials}
+                    onClick={handleCredentialUpdate}
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-lg transition-colors shadow-sm disabled:cursor-not-allowed"
+                >
+                  {savingCredentials ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                      <Shield className="w-4 h-4" />
+                  )}
+                  {savingCredentials ? 'Updating Credentials...' : 'Update Credentials'}
+                </button>
+
+                <button
+                    type="submit"
+                    disabled={savingBusiness}
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-medium rounded-lg transition-colors shadow-sm disabled:cursor-not-allowed"
+                >
+                  {savingBusiness ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                      <Save className="w-4 h-4" />
+                  )}
+                  {savingBusiness ? 'Saving Changes...' : 'Save Business Changes'}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
       </div>
   );
 };

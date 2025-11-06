@@ -87,7 +87,9 @@ const Page = ({ params }: { params: { id: string } }) => {
     status: typedFilterState.status,
     start_date: filterState.dateRange.startDate,
     end_date: filterState.dateRange.endDate,
-  }), [filterState]);
+  }), [typedFilterState.status, filterState.dateRange.startDate, filterState.dateRange.endDate]);
+
+
 
   const fetchData = useCallback(async (page: number) => {
     if (!authState.token) return;
@@ -106,11 +108,12 @@ const Page = ({ params }: { params: { id: string } }) => {
     } finally {
       setLoading(false);
     }
-  }, [authState.token, queryParams, pagination.limit]);
+  }, [authState.token, queryParams, pagination.limit, params.id]); // Added params.id
 
   useEffect(() => {
     fetchData(currentPage);
   }, [fetchData, currentPage]);
+
   useEffect(() => {
     setShowSearchQuery(true);
 
@@ -247,8 +250,6 @@ const Page = ({ params }: { params: { id: string } }) => {
               onPaginate={setCurrentPage}
               pagination={pagination}
               onRowClick={(row) => setModalData(row)}
-
-
           />
         </div>
       </div>

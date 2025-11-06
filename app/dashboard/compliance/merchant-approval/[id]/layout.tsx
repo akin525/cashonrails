@@ -5,6 +5,7 @@ import Header from './Header';
 import { CalendarIcon, CancelIcon, ChevronIcon } from '@/public/assets/icons';
 import { Chip } from '@/components/chip';
 import { useAuth } from '@/contexts/authContext';
+import { useUI } from '@/contexts/uiContext';
 import axiosInstance from '@/helpers/axiosInstance';
 import toast from 'react-hot-toast';
 import moment from 'moment';
@@ -14,6 +15,7 @@ import { TableDetailSkeleton } from '@/components/loaders';
 import { CustomDropdown, DropdownItem } from '@/components/dropDown';
 import { RejectionComposer } from '@/components/EditorPad';
 import { useTheme } from 'next-themes';
+
 interface MerchantData {
     id: number;
     user_id: number;
@@ -26,6 +28,42 @@ interface MerchantData {
     category?: { name: string };
 }
 
+interface BusinessApprovalPayload {
+    business_id: number;
+    status: "approved" | "rejected";
+}
+
+interface BusinessRejectionPayload extends BusinessApprovalPayload {
+    kyc_reason_for_rejection: string[];
+    kyc_rejected_comment: string;
+}
+
+// Validation helper function
+const validateBusinessPayload = (payload: BusinessApprovalPayload | BusinessRejectionPayload): string[] => {
+    const errors: string[] = [];
+
+    if (!payload.business_id) {
+        errors.push("business_id is required");
+    }
+
+    if (!payload.status) {
+        errors.push("status is required");
+    }
+
+    // Additional validation for rejection
+    if (payload.status === "rejected") {
+        const rejectionPayload = payload as BusinessRejectionPayload;
+        if (!rejectionPayload.kyc_reason_for_rejection || !Array.isArray(rejectionPayload.kyc_reason_for_rejection)) {
+            errors.push("kyc_reason_for_rejection is required and must be an array for rejection");
+        }
+        if (!rejectionPayload.kyc_rejected_comment) {
+            errors.push("kyc_rejected_comment is required for rejection");
+        }
+    }
+
+    return errors;
+};
+
 export default function SettingsLayout({
     children,
     params
@@ -34,9 +72,11 @@ export default function SettingsLayout({
     params: { "id": string }
 }) {
     const [merchantData, setMerchantData] = useState<MerchantData | null>(null);
+    const [availableDocuments, setAvailableDocuments] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(false);
     const { authState } = useAuth();
+    const { flaggedDocuments } = useUI();
     const [isReviewing, setIsReviewing] = useState(false);
     const [visibleModal, setVisibleModal] = useState<"approve" | "dispute" | null>(null);
     const [draftContent, setDraftContent] = useState<string>("");
@@ -62,18 +102,46 @@ export default function SettingsLayout({
                 setIsLoading(false);
             }
         };
+
+        const fetchAvailableDocuments = async () => {
+            const documents = [
+                { id: 'directors_national_id', info: 'Directors National ID' },
+                { id: 'business_website', info: 'Business Website' },
+                { id: 'business_proof_of_address', info: 'Business Proof of Address' },
+                { id: 'means_of_id_for_individual_account', info: 'Means of ID for Individual Account' },
+                { id: 'individual_proof_of_address', info: 'Individual Proof of Address' },
+                
+            ];
+
+            setAvailableDocuments(documents);
+        };
+
         if (authState.token) {
             fetchMerchantData();
+            fetchAvailableDocuments();
         }
     }, [params.id, authState?.token]);
 
     const handleReview = async (merchantStatus: "approved" | "rejected") => {
-        setIsReviewing(true); // Start loading
+        setIsReviewing(true);
         try {
-            const response = await axiosInstance.post("/operations/review-merchant", {
-                business_id: merchantData?.id,
+            if(!merchantData) {
+                toast.error("Merchant data not loaded");
+                setIsReviewing(false);
+                return;
+            }
+            const requestPayload: BusinessApprovalPayload = {
+                business_id: merchantData.id,
                 status: merchantStatus
-            }, {
+            };
+
+            const validationErrors = validateBusinessPayload(requestPayload);
+            if (validationErrors.length > 0) {
+                toast.error(`Validation errors: ${validationErrors.join(', ')}`);
+                return;
+            }
+
+            const response = await axiosInstance.post("/operations/review-merchant", requestPayload, {
                 headers: { Authorization: `Bearer ${authState?.token}` },
             });
             if (response.data && response.data.status) {
@@ -85,30 +153,55 @@ export default function SettingsLayout({
         } catch (err) {
             toast.error(`Error reviewing merchant. Please try again.`);
         } finally {
-            setIsReviewing(false); // End loading
+            setIsReviewing(false);
         }
     };
 
     const handleDraftSend = async (content: string) => {
         setIsReviewing(true); // Start loading
         try {
-            const response = await axiosInstance.post("/operations/review-merchant", {
-                business_id: merchantData?.id,
+            if (!merchantData) {
+                toast.error("Merchant data not loaded");
+                setIsReviewing(false);
+                return;
+            }
+            // Get flagged documents to build rejection reasons array
+            const merchantDocs = flaggedDocuments[merchantData.id] || [];
+            const rejectionReasons = merchantDocs.length > 0
+                ? merchantDocs.map((doc: { name: string; id: string }) => doc.id) // Use document key/ID instead of display name
+                : ['compliance_review']; // Default reason if no specific documents flagged
+
+            // Required parameters for business rejection with KYC reasons - flattened structure
+            const requestPayload: BusinessRejectionPayload = {
+                business_id: merchantData.id,
                 status: "rejected",
-                mail_body: content
-            }, {
+                kyc_reason_for_rejection: rejectionReasons,
+                kyc_rejected_comment: content || (merchantDocs.length > 0 
+                    ? `The following documents do not meet compliance requirements: ${merchantDocs.map((doc: { name: string; id: string }) => doc.name).join(', ')}. Please review and resubmit these documents with the necessary corrections.`
+                    : "The submitted documents do not meet our compliance requirements. Please review and resubmit the required documents."),
+            };
+
+            const validationErrors = validateBusinessPayload(requestPayload);
+            if (validationErrors.length > 0) {
+                toast.error(`Validation errors: ${validationErrors.join(', ')}`);
+                return;
+            }
+
+            const response = await axiosInstance.post("/operations/review-merchant", requestPayload, {
                 headers: { Authorization: `Bearer ${authState?.token}` },
             });
             if (response.data && response.data.status) {
                 toast.success(`Merchant rejected successfully`);
                 setMerchantData({ ...merchantData, status: "rejected" } as MerchantData);
+                setVisibleModal(null);
+                setDraftContent("");
             } else {
                 toast.error(response.data.message || `Failed to reject merchant`);
             }
         } catch (err) {
             toast.error(`Error rejecting merchant. Please try again.`);
         } finally {
-            setIsReviewing(false); // End loading
+            setIsReviewing(false);
         }
     }
     const handleCancel = () => {
@@ -150,7 +243,6 @@ export default function SettingsLayout({
 
     return (
         < >
-            {/* Loading Overlay */}
             {isReviewing && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
                     <div className="bg-white p-6 rounded-lg shadow-lg flex items-center gap-3">
@@ -159,7 +251,7 @@ export default function SettingsLayout({
                     </div>
                 </div>
             )}
-            <Header name={merchantData?.name} theme={theme}/>
+            <Header name={merchantData?.name} theme={theme} />
             <div className='w-full p-4 min-h-screen'>
                 <div>
                     <div className='flex items-center gap-4'>
@@ -230,6 +322,10 @@ export default function SettingsLayout({
                             href: `/dashboard/compliance/merchant-approval/${params.id}/compliance`
                         },
                         {
+                            label: 'Verification',
+                            href: `/dashboard/compliance/merchant-approval/${params.id}/verification`
+                        },
+                        {
                             label: 'Profile',
                             href: `/dashboard/compliance/merchant-approval/${params.id}/profile`
                         },
@@ -266,6 +362,7 @@ export default function SettingsLayout({
                                     submissionDate: merchantData?.created_at,
                                     merchantId: params.id
                                 }}
+                                availableDocuments={availableDocuments}
                                 fullScreen={isFullScreen}
                                 onSend={(content) => handleDraftSend(content)}
                                 onCancel={handleCancel}

@@ -1,24 +1,52 @@
 "use client";
-import React, { Suspense, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  ShopOutlineIcon,
   BalanceOutlineIcon,
-  SupportOutlineIcon,
-  SettingsOutlineIcon,
   ChevronIcon,
   CustomerIcon,
   OverviewOutline,
   OverviewFilled,
-  ComplianceIconOutline, AnalyticsIcon, ReportIcon,
+  ComplianceIconOutline,
+  AnalyticsIcon,
+  ReportIcon,
+  SettingsOutlineIcon,
+  SupportOutlineIcon,
 } from "@icons/index";
 import { useAuth } from "@/contexts/authContext";
-import { useUI } from "@/contexts/uiContext"; // Import the UI context
-import { Route, RouteLiteral } from "nextjs-routes";
 import { useTheme } from "next-themes";
-import ThemeSwitcher from "../utils";
-import {Menu} from "lucide-react";
+import {
+  Menu,
+  X,
+  LogOut,
+  ChevronRight,
+  BarChart3,
+  Users,
+  CreditCard,
+  Search,
+  DollarSign,
+  Shield,
+  TrendingUp,
+  Mail,
+  Store,
+  Building2,
+  UserCheck,
+  FileText,
+  Calculator,
+  Activity,
+  ArrowUpDown,
+  Wallet,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  Clock,
+  PieChart,
+  Settings,
+  UserCog,
+  Eye,
+  Briefcase,
+} from "lucide-react";
 
 // Types
 interface NavItem {
@@ -27,394 +55,639 @@ interface NavItem {
   label: string;
   path: string;
   expandable?: boolean;
-  subItems?: { label: string; path: string }[];
+  subItems?: { label: string; path: string; icon?: React.ReactNode }[];
   roles?: string[];
 }
 
-
+interface Department {
+  name: string;
+  items: NavItem[];
+}
 
 const Sidebar: React.FC = () => {
   const pathname = usePathname();
   const router = useRouter();
   const { dispatch, authState } = useAuth();
-  const { theme, setTheme } = useTheme();
+  const { theme } = useTheme();
   const isDarkMode = theme === "dark";
-  const userRole = authState.userDetails?.role || "admin"; // Default to "admin" if undefined
+  const userRole = authState.userDetails?.role || "admin";
+
   const [isSidebarOpen, setSidebarOpen] = useState(false);
-  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({
-    Payment: true,
-    More: false,
-    Account: false,
-    Subscriptions: false,
-  });
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+
+  // Auto close on route change (mobile)
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
 
   const logout = () => {
     dispatch({ type: "LOGOUT" });
-    return router.replace("/login");
+    router.replace("/login");
   };
 
-  const navItems: NavItem[] = [
-    {
-      icon: <OverviewOutline />,
-      activeIcon: <OverviewFilled />,
-      label: "Overview",
-      path: "/dashboard/overview",
-      roles: ["admin", "superadmin"],
-    },
-
-    {
-      icon: <OverviewOutline />,
-      activeIcon: <OverviewFilled />,
-      label: "Overview Addition",
-      path: "/dashboard/overview2",
-      roles: ["admin","superadmin"],
-
-    },
-    {
-      icon: <OverviewOutline />,
-      activeIcon: <OverviewFilled />,
-      label: "Compose Mail",
-      path: "/dashboard/operations/compose-email",
-      roles: ["admin", "superadmin"],
-
-    },
-    {
-      icon: <OverviewOutline />,
-      activeIcon: <OverviewFilled />,
-      label: "Board Analytics",
-      path: "/dashboard/overviewNew",
-      roles: ["admin", "superadmin"],
-
-    },
-    {
-      icon: <AnalyticsIcon />,
-      activeIcon: <AnalyticsIcon />,
-      label: "Analytics",
-      path: "/",
-      expandable: true,
-      subItems: [
-        { label: "System Calculator", path: "/dashboard/Analytics/system-calculator" },
-        { label: "Virtual Stats", path: "/dashboard/Analytics/virtual-account" },
-        { label: "System Statistics Daily", path: "/dashboard/Analytics/system-statistics" },
-        { label: "System Statistics Monthly", path: "/dashboard/Analytics/monthly-statistics" },
-        // ...(userRole === "superadmin"
-        //     ? [
-        //       { label: "Virtual Stats", path: "/dashboard/Analytics/virtual-account" },
-        //       { label: "System Statistics Daily", path: "/dashboard/Analytics/system-statistics" },
-        //       { label: "System Statistics Monthly", path: "/dashboard/Analytics/monthly-statistics" },
-        //     ]
-        //     : []),
-      ],
-    },
-
-    {
-      icon: <ReportIcon />,
-      activeIcon: <ReportIcon />,
-      label: "Report",
-      path: "/",
-      expandable: true,
-      roles: ["admin", "superadmin"],
-      subItems: [
-        { label: "Transaction Report", path: "/dashboard/reports/transaction-report" },
-        { label: "Payout Report", path: "/dashboard/reports/payout-report" },
-        { label: "Refund Report", path: "/dashboard/reports/refund-report" },
-      ],
-    },
-
-    {
-      icon: <CustomerIcon />,
-      activeIcon: <CustomerIcon />,
-      label: "Operations",
-      path: "/",
-      expandable: true,
-      roles: ["admin", "superadmin"],
-      subItems: [
-        { label: "Business-Overview", path: "/dashboard/operations/merchant-overview" },
-        { label: "Business", path: "/dashboard/operations/merchant" },
-        { label: "Transfer Bucket", path: "/dashboard/operations/transfer-bucket" },
-        { label: "List Merchant", path: "/dashboard/operations/users" },
-        { label: "Virtual Accounts", path: "/dashboard/operations/virtual-accounts" },
-        { label: "Resolve Transaction", path: "/dashboard/operations/resolve-transaction" },
-      ],
-    },
-    {
-      icon: <CustomerIcon />,
-      activeIcon: <CustomerIcon />,
-      label: "Cashier",
-      path: "/",
-      roles: ["superadmin"],
-      expandable: true,
-      subItems: [
-        { label: "Payout-Cashier", path: "/dashboard/cashier/payout-cashier" },
-        { label: "Deposit-Cashier", path: "/dashboard/cashier/deposit-cashier"},
-      ],
-    },
-    {
-      icon: <OverviewOutline />,
-      activeIcon: <OverviewFilled />,
-      label: "Storefronts",
-      path: "/dashboard/storefronts",
-      roles: ["admin", "superadmin"],
-    },
-
-    {
-      icon: <ReportIcon />,
-      activeIcon: <ReportIcon />,
-      label: "NETMFB",
-      path: "/" as const,
-      expandable: true,
-      subItems: [
-        { label: "Summary", path: "/dashboard/netmfb/summary" as const },
-        { label: "Statement", path: "/dashboard/netmfb/statement" as const },
-        ...(userRole === "superadmin"
-            ? [{ label: "Transfer", path: "/dashboard/netmfb/transfer" as const }]
-            : []),
+  // ORGANIZED DEPARTMENTS
+  const departments: Department[] = useMemo(
+      () => [
+        // DASHBOARD & OVERVIEW
+        {
+          name: "Dashboard",
+          items: [
+            {
+              icon: <BarChart3 className="w-5 h-5" />,
+              activeIcon: <BarChart3 className="w-5 h-5 text-emerald-500" />,
+              label: "Overview",
+              path: "/dashboard/overview",
+              roles: ["admin", "superadmin"],
+            },
+            {
+              icon: <PieChart className="w-5 h-5" />,
+              activeIcon: <PieChart className="w-5 h-5 text-emerald-500" />,
+              label: "Board Analytics",
+              path: "/dashboard/overviewNew",
+              roles: ["superadmin"],
+            },
+            {
+              icon: <Activity className="w-5 h-5" />,
+              activeIcon: <Activity className="w-5 h-5 text-emerald-500" />,
+              label: "System Analytics",
+              path: "/dashboard/overview2",
+              roles: ["superadmin"],
+            },
           ],
-    },
+        },
 
-    {
-      icon: <ComplianceIconOutline />,
-      label: "Compliance",
-      path: "/",
-      roles: ["admin","superadmin"],
-      expandable: true,
-      subItems: [
-        { label: "Business Approval", path: "/dashboard/compliance/merchant-approval" },
+        // BUSINESS OPERATIONS
+        {
+          name: "Business Operations",
+          items: [
+            {
+              icon: <Briefcase className="w-5 h-5" />,
+              label: "Business Management",
+              path: "/dashboard/operations",
+              expandable: true,
+              roles: ["admin", "superadmin"],
+              subItems: [
+                {
+                  label: "Business Overview",
+                  path: "/dashboard/operations/merchant-overview",
+                  icon: <Eye className="w-4 h-4" />
+                },
+                {
+                  label: "Business Directory",
+                  path: "/dashboard/operations/merchant",
+                  icon: <Building2 className="w-4 h-4" />
+                },
+                {
+                  label: "Merchant List",
+                  path: "/dashboard/operations/users",
+                  icon: <Users className="w-4 h-4" />
+                },
+                {
+                  label: "Virtual Accounts",
+                  path: "/dashboard/operations/virtual-accounts",
+                  icon: <CreditCard className="w-4 h-4" />
+                },
+                ...(userRole === "superadmin"
+                ?[{
+                  label: "Transfer Bucket",
+                  path: "/dashboard/operations/transfer-bucket",
+                  icon: <ArrowUpDown className="w-4 h-4" />
+                },
+                {
+                  label: "Resolve Transaction",
+                  path: "/dashboard/operations/resolve-transaction",
+                  icon: <AlertTriangle className="w-4 h-4" />
+                }]
+                  :[]),
+              ],
+            },
+            {
+              icon: <Store className="w-5 h-5" />,
+              activeIcon: <Store className="w-5 h-5 text-emerald-500" />,
+              label: "Storefronts",
+              path: "/dashboard/storefronts",
+              roles: ["admin", "superadmin"],
+            },
+            {
+              icon: <Mail className="w-5 h-5" />,
+              activeIcon: <Mail className="w-5 h-5 text-emerald-500" />,
+              label: "Communications",
+              path: "/dashboard/operations/compose-email",
+              roles: ["superadmin"],
+            },
+          ],
+        },
+
+        // FINANCIAL OPERATIONS
+        {
+          name: "Financial Operations",
+          items: [
+            {
+              icon: <DollarSign className="w-5 h-5" />,
+              label: "Finance",
+              path: "/dashboard/finance",
+              expandable: true,
+              roles: ["admin", "superadmin"],
+              subItems: [
+                {
+                  label: "Export Per Business",
+                  path: "/dashboard/finance/getbusiness",
+                  icon: <FileText className="w-4 h-4" />
+                },
+                {
+                  label: "Transactions",
+                  path: "/dashboard/finance/transactions",
+                  icon: <ArrowUpDown className="w-4 h-4" />
+                },
+                {
+                  label: "Transfers",
+                  path: "/dashboard/finance/transfers",
+                  icon: <ArrowUpDown className="w-4 h-4" />
+                },
+                {
+                  label: "Settlements",
+                  path: "/dashboard/finance/settlements",
+                  icon: <CheckCircle className="w-4 h-4" />
+                },
+                {
+                  label: "Chargebacks",
+                  path: "/dashboard/finance/chargebacks",
+                  icon: <XCircle className="w-4 h-4" />
+                },
+                {
+                  label: "Checkouts",
+                  path: "/dashboard/finance/checkout",
+                  icon: <CreditCard className="w-4 h-4" />
+                },
+                {
+                  label: "Wallet Transactions",
+                  path: "/dashboard/finance/wallet-transactions",
+                  icon: <Wallet className="w-4 h-4" />
+                },
+                {
+                  label: "Incoming Transfers",
+                  path: "/dashboard/finance/inbound-transfers",
+                  icon: <ArrowUpDown className="w-4 h-4" />
+                },
+                {
+                  label: "Unsettled Transactions",
+                  path: "/dashboard/finance/unsettled-transactions",
+                  icon: <Clock className="w-4 h-4" />
+                },
+              ],
+            },
+            {
+              icon: <CreditCard className="w-5 h-5" />,
+              label: "Payouts",
+              path: "/dashboard/payouts",
+              expandable: true,
+              roles: ["admin", "superadmin"],
+              subItems: [
+                {
+                  label: "All Payouts",
+                  path: "/dashboard/finance/payouts",
+                  icon: <CheckCircle className="w-4 h-4" />
+                },
+                {
+                  label: "Pending Payouts",
+                  path: "/dashboard/finance/pending-payouts",
+                  icon: <Clock className="w-4 h-4" />
+                },
+                {
+                  label: "Failed Payouts",
+                  path: "/dashboard/finance/failed-payouts",
+                  icon: <XCircle className="w-4 h-4" />
+                },
+              ],
+            },
+            {
+              icon: <Building2 className="w-5 h-5" />,
+              label: "NETMFB Banking",
+              path: "/dashboard/netmfb",
+              roles: ["superadmin"],
+
+              expandable: true,
+              subItems: [
+                {
+                  label: "Account Summary",
+                  path: "/dashboard/netmfb/summary",
+                  icon: <BarChart3 className="w-4 h-4" />
+                },
+                {
+                  label: "Bank Statement",
+                  path: "/dashboard/netmfb/statement",
+                  icon: <FileText className="w-4 h-4" />
+                },
+                ...(userRole === "superadmin"
+                    ? [{
+                      label: "Bank Transfer",
+                      path: "/dashboard/netmfb/transfer",
+                      icon: <ArrowUpDown className="w-4 h-4" />
+                    }]
+                    : []),
+              ],
+            },
+          ],
+        },
+
+        // ANALYTICS & REPORTING
+        {
+          name: "Analytics & Reports",
+          items: [
+            {
+              icon: <BarChart3 className="w-5 h-5" />,
+              label: "Analytics",
+              path: "/dashboard/analytics",
+              roles: ["admin","superadmin"],
+              expandable: true,
+              subItems: [
+                {
+                  label: "System Calculator",
+                  path: "/dashboard/Analytics/system-calculator",
+                  icon: <Calculator className="w-4 h-4" />
+                },
+                {
+                  label: "Virtual Account Stats",
+                  path: "/dashboard/Analytics/virtual-account",
+                  icon: <CreditCard className="w-4 h-4" />
+                },
+                {
+                  label: "Daily Statistics",
+                  path: "/dashboard/Analytics/system-statistics",
+                  icon: <Activity className="w-4 h-4" />
+                },
+                {
+                  label: "Monthly Statistics",
+                  path: "/dashboard/Analytics/monthly-statistics",
+                  icon: <PieChart className="w-4 h-4" />
+                },
+              ],
+            },
+            {
+              icon: <FileText className="w-5 h-5" />,
+              label: "Reports",
+              path: "/dashboard/reports",
+              expandable: true,
+              roles: ["admin", "superadmin"],
+              subItems: [
+                {
+                  label: "Transaction Report",
+                  path: "/dashboard/reports/transaction-report",
+                  icon: <ArrowUpDown className="w-4 h-4" />
+                },
+                {
+                  label: "Payout Report",
+                  path: "/dashboard/reports/payout-report",
+                  icon: <CreditCard className="w-4 h-4" />
+                },
+                {
+                  label: "Refund Report",
+                  path: "/dashboard/reports/refund-report",
+                  icon: <XCircle className="w-4 h-4" />
+                },
+              ],
+            },
+            {
+              icon: <Search className="w-5 h-5" />,
+              label: "Search & Lookup",
+              path: "/dashboard/finance",
+              expandable: true,
+              roles: ["admin", "superadmin"],
+              subItems: [
+                {
+                  label: "Search Transaction",
+                  path: "/dashboard/finance/search-transaction",
+                  icon: <ArrowUpDown className="w-4 h-4" />
+                },
+                {
+                  label: "Search Payout",
+                  path: "/dashboard/finance/search-payout",
+                  icon: <CreditCard className="w-4 h-4" />
+                },
+                {
+                  label: "Search Incoming",
+                  path: "/dashboard/finance/search-incoming",
+                  icon: <ArrowUpDown className="w-4 h-4" />
+                },
+                {
+                  label: "Search Checkout",
+                  path: "/dashboard/finance/search-checkout",
+                  icon: <CreditCard className="w-4 h-4" />
+                },
+              ],
+            },
+          ],
+        },
+
+        // ADMINISTRATION
+        {
+          name: "Administration",
+          items: [
+            {
+              icon: <Shield className="w-5 h-5" />,
+              label: "Compliance",
+              path: "/dashboard/compliance",
+              roles: ["superadmin","admin"],
+              expandable: true,
+              subItems: [
+                {
+                  label: "Business Approval",
+                  path: "/dashboard/compliance/merchant-approval",
+                  icon: <UserCheck className="w-4 h-4" />
+                }
+              ],
+            },
+            {
+              icon: <Users className="w-5 h-5" />,
+              label: "Staff Management",
+              path: "/dashboard/staff",
+              roles: ["superadmin"],
+              expandable: true,
+              subItems: [
+                {
+                  label: "Team Members",
+                  path: "/dashboard/settings/teams",
+                  icon: <Users className="w-4 h-4" />
+                }
+              ],
+            },
+            {
+              icon: <Wallet className="w-5 h-5" />,
+              label: "Cashier Operations",
+              path: "/dashboard/cashier",
+              roles: ["superadmin"],
+              expandable: true,
+              subItems: [
+                {
+                  label: "Payout Cashier",
+                  path: "/dashboard/cashier/payout-cashier",
+                  icon: <CreditCard className="w-4 h-4" />
+                },
+                {
+                  label: "Deposit Cashier",
+                  path: "/dashboard/cashier/deposit-cashier",
+                  icon: <Wallet className="w-4 h-4" />
+                },
+              ],
+            },
+            {
+              icon: <TrendingUp className="w-5 h-5" />,
+              label: "Growth & Performance",
+              path: "/dashboard/growth",
+              expandable: true,
+              roles: ["superadmin"],
+              subItems: [
+                {
+                  label: "Merchant Performance",
+                  path: "/dashboard/growth/merchant-performance",
+                  icon: <BarChart3 className="w-4 h-4" />
+                },
+                {
+                  label: "Fees Management",
+                  path: "/dashboard/growth/fees-management",
+                  icon: <DollarSign className="w-4 h-4" />
+                },
+              ],
+            },
+          ],
+        },
       ],
-    },
-
-    {
-      icon: <CustomerIcon />,
-      activeIcon: <CustomerIcon />,
-      label: "Staff",
-      path: "/",
-      roles: ["superadmin"],
-      expandable: true,
-      subItems: [
-        { label: "Staff", path: "/dashboard/settings/teams" },
-        // { label: "Add Staff", path: "/" },
-      ],
-    },
-    {
-      icon: <BalanceOutlineIcon size={20} />,
-      label: "Finance",
-      path: "/",
-      expandable: true,
-      roles: ["admin", "superadmin"],
-      subItems: [
-        { label: "Export Per Business", path: "/dashboard/finance/getbusiness" },
-        { label: "Transactions", path: "/dashboard/finance/transactions" },
-        { label: "Transfers", path: "/dashboard/finance/transfers" },
-        { label: "Settlements", path: "/dashboard/finance/settlements" },
-        { label: "Chargebacks", path: "/dashboard/finance/chargebacks" },
-        { label: "Checkouts", path: "/dashboard/finance/checkout" },
-        { label: "Wallet Transactions", path: "/dashboard/finance/wallet-transactions" },
-        { label: "Incoming Transfers", path: "/dashboard/finance/inbound-transfers" },
-        { label: "Unsettled Transactions", path: "/dashboard/finance/unsettled-transactions" },
-
-
-
-      ],
-    },
-    {
-      icon: <ReportIcon />,
-      activeIcon: <ReportIcon />,
-      label: "Payouts",
-      path: "/",
-      expandable: true,
-      roles: ["admin", "superadmin"],
-      subItems: [
-        { label: "Payouts", path: "/dashboard/finance/payouts" },
-        { label: "Pending Payout", path: "/dashboard/finance/pending-payouts" },
-        { label: "Failed Payouts", path: "/dashboard/finance/failed-payouts" },
-
-
-      ],
-    },
-
-    {
-      icon: <CustomerIcon />,
-      label: "Growth",
-      path: "/",
-      expandable: true,
-      roles: ["superadmin"],
-      subItems: [
-        { label: "Merchant Performance", path: "/dashboard/growth/merchant-performance" },
-        { label: "Fees Management", path: "/dashboard/growth/fees-management" },
-      ],
-    },
-
-
-  ];
+      [userRole]
+  );
 
   const accountItems: NavItem[] = [
     {
-      icon: <SettingsOutlineIcon />,
+      icon: <Settings className="w-5 h-5" />,
       label: "Settings",
       path: "/dashboard/settings/profile",
       roles: ["admin", "superadmin"],
       expandable: true,
       subItems: [
-        { label: "Profile", path: "/dashboard/settings/profile" },
-        { label: "Audit Logs", path: "/dashboard/settings/audit-logs" },
-        { label: "Departments", path: "/dashboard/settings/departments" },
+        {
+          label: "Profile",
+          path: "/dashboard/settings/profile",
+          icon: <UserCog className="w-4 h-4" />
+        },
+        {
+          label: "Audit Logs",
+          path: "/dashboard/settings/audit-logs",
+          icon: <Eye className="w-4 h-4" />
+        },
+        {
+          label: "Departments",
+          path: "/dashboard/settings/departments",
+          icon: <Building2 className="w-4 h-4" />
+        },
       ],
     },
   ];
-  const toggleExpand = (label: string) => {
-    setExpandedItems((prev) => ({ ...prev, [label]: !prev[label] }));
-  };
 
   const isActive = (itemPath: string) =>
-    pathname === itemPath || pathname.startsWith(`${itemPath}/`);
+      pathname === itemPath || pathname.startsWith(`${itemPath}/`);
 
-  const renderNavItem = (item: NavItem, index: number) => (
-      <div key={index} className="mb-1">
-        <Link href={item.path as any}>
-          <div
-              className={`flex items-center rounded-lg justify-between px-4 py-2.5 cursor-pointer transition-all duration-200 ease-in-out ${
-                  isActive(item.path) ||
-                  (item.subItems && item.subItems.some((subItem) => isActive(subItem.path)))
-                      ? isDarkMode
-                          ? "bg-[#01ab7880]"
-                          : "bg-secondary-background"
-                      : "hover:bg-[#01ab7822]"
-              }`}
-              onClick={(e) => {
-                if (item.expandable) {
-                  e.preventDefault();
-                  toggleExpand(item.label);
-                }
-              }}
-          >
-            <div className="flex items-center space-x-3">
-            <span className="transition-colors duration-200">
-              {isActive(item.path) && item.activeIcon ? item.activeIcon : item.icon}
+  const isParentActive = (item: NavItem) =>
+      isActive(item.path) || (item.subItems && item.subItems.some((s) => isActive(s.path)));
+
+  const toggleExpand = (label: string) =>
+      setExpandedItems((prev) => ({ ...prev, [label]: !prev[label] }));
+
+  const handleNavClick = (item: NavItem) => {
+    if (item.expandable) {
+      toggleExpand(item.label);
+    } else {
+      router.push(item.path as any);
+    }
+  };
+
+  const NavRow = ({ item }: { item: NavItem }) => {
+    const parentActive = isParentActive(item);
+    const expanded = expandedItems[item.label];
+
+    return (
+        <div className="mb-1">
+          {item.expandable ? (
+              <button
+                  className={`group relative w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                      parentActive
+                          ? isDarkMode
+                              ? "bg-emerald-500/15 text-emerald-300"
+                              : "bg-emerald-50 text-emerald-700"
+                          : isDarkMode
+                              ? "text-gray-300 hover:bg-white/5 hover:text-white"
+                              : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                  }`}
+                  onClick={() => handleNavClick(item)}
+                  aria-expanded={!!expanded}
+              >
+                {parentActive && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-7 bg-emerald-500 rounded-r-full" />
+                )}
+
+                <span className="flex items-center gap-3 min-w-0">
+              <span className="flex-shrink-0">
+                {parentActive && item.activeIcon ? item.activeIcon : item.icon}
+              </span>
+              <span className="truncate text-sm font-medium">{item.label}</span>
             </span>
-              <span className={`transition-colors duration-200 ${isDarkMode ? "text-gray-300" : "text-gray-800"}`}>
-              {item.label}
-            </span>
-            </div>
-            {item.expandable && (
-                <ChevronIcon
-                    stroke={isDarkMode ? "white" : "black"}
-                    className={`transform transition-transform duration-300 ease-in-out ${
-                        expandedItems[item.label] ? "rotate-90" : ""
-                    }`}
+
+                <ChevronRight
+                    className={`w-4 h-4 transition-transform ${expanded ? "rotate-90" : ""}`}
                 />
-            )}
-          </div>
-        </Link>
-        {item.expandable && (
-            <div
-                className={`ml-6 overflow-hidden transition-all duration-300 ease-in-out ${
-                    expandedItems[item.label] ? "max-h-[500px] opacity-100 transform translate-y-0" : "max-h-0 opacity-0 transform -translate-y-2"
-                }`}
-            >
-              {item.subItems?.map((subItem, subIndex) => (
-                  <Link key={subIndex} href={subItem.path as any}>
-                    <div
-                        className={`py-2 px-2 my-1 rounded-lg text-sm cursor-pointer transition-all duration-200 ease-in-out ${
-                            isActive(subItem.path) ? "text-green-400 font-medium" : isDarkMode ? "text-gray-400" : "text-gray-700"
+              </button>
+          ) : (
+              <Link href={item.path as any}>
+                <div
+                    className={`group relative w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 cursor-pointer ${
+                        parentActive
+                            ? isDarkMode
+                                ? "bg-emerald-500/15 text-emerald-300"
+                                : "bg-emerald-50 text-emerald-700"
+                            : isDarkMode
+                                ? "text-gray-300 hover:bg-white/5 hover:text-white"
+                                : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                    }`}
+                >
+                  {parentActive && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-7 bg-emerald-500 rounded-r-full" />
+                  )}
+
+                  <span className="flex items-center gap-3 min-w-0">
+                <span className="flex-shrink-0">
+                  {parentActive && item.activeIcon ? item.activeIcon : item.icon}
+                </span>
+                <span className="truncate text-sm font-medium">{item.label}</span>
+              </span>
+                </div>
+              </Link>
+          )}
+
+          {item.expandable && (
+              <div
+                  className={`ml-4 overflow-hidden transition-[max-height,opacity] duration-300 ${
+                      expanded ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+                  }`}
+              >
+                <div className="mt-1 pl-3 border-l border-gray-200 dark:border-white/10 space-y-0.5">
+                  {item.subItems?.map((s) => {
+                    const active = isActive(s.path);
+                    return (
+                        <Link key={s.path} href={s.path as any}>
+                    <span
+                        className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm cursor-pointer transition-all ${
+                            active
+                                ? isDarkMode
+                                    ? "text-emerald-300 bg-emerald-500/10"
+                                    : "text-emerald-700 bg-emerald-50"
+                                : isDarkMode
+                                    ? "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
                         }`}
                     >
-                      {subItem.label}
-                    </div>
-                  </Link>
-              ))}
-            </div>
-        )}
-      </div>
-  );
+                      {s.icon && <span className="flex-shrink-0">{s.icon}</span>}
+                      <span className="truncate">{s.label}</span>
+                    </span>
+                        </Link>
+                    );
+                  })}
+                </div>
+              </div>
+          )}
+        </div>
+    );
+  };
 
   return (
       <>
-        {/* Mobile Toggle Button */}
+        {/* Mobile Toggle */}
         <button
-            className="md:hidden fixed top-4 left-4 z-50 bg-green-600 text-white p-2 shadow-lg"
-            onClick={() => setSidebarOpen(!isSidebarOpen)}
+            className="md:hidden fixed top-4 left-4 z-50 bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-lg shadow-lg transition-all"
+            onClick={() => setSidebarOpen((s) => !s)}
+            aria-label="Toggle sidebar"
         >
-          <Menu className="w-6 h-6 text-white" />
+          {isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
 
-        {/* Sidebar Container */}
-        <div
-            className={`fixed md:relative top-0 left-0 z-40 h-screen w-64 md:w-[18%] md:block overflow-y-auto scrollbar-hidden px-4 py-2.5
-        transform transition-transform duration-300 ease-in-out
+        {/* Sidebar */}
+        <aside
+            className={`fixed md:relative top-0 left-0 z-40 h-screen w-68 md:w-[18%] overflow-y-auto px-3 py-3
+        transition-transform duration-300
         ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
-        bg-white dark:bg-[#122023]
-        border-r border-gray-300 dark:border-gray-700`}
+        ${isDarkMode ? "bg-[#0F1719] border-r border-white/10" : "bg-white border-r border-gray-200"}`}
         >
-          {/* User Info */}
-          <div className="flex items-center mb-6">
-            <div className="flex items-center justify-between w-full rounded-lg py-2.5 px-2.5 bg-gray-100 dark:bg-[#F1FDF608]">
-              <div className="flex items-center gap-x-2.5">
-            <span className="w-8 h-8 rounded-full font-medium flex justify-center items-center text-sm uppercase bg-green-500 text-white">
-              {(authState.userDetails?.name?.split("")[0] || "")?.charAt(0)}
+          {/* User Profile */}
+          <div
+              className={`flex items-center justify-between w-full rounded-lg p-3 mb-6 ${
+                  isDarkMode ? "bg-white/5" : "bg-gray-50"
+              }`}
+          >
+            <div className="flex items-center gap-3 min-w-0">
+            <span className="w-9 h-9 rounded-full flex items-center justify-center bg-emerald-500 text-white text-sm font-semibold">
+              {(authState.userDetails?.name?.[0] || "U").toUpperCase()}
             </span>
-                <div>
-                  <p className="font-medium text-sm truncate text-black dark:text-white">
-                    {authState.userDetails?.name}
-                  </p>
-                </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium truncate text-gray-900 dark:text-white">
+                  {authState.userDetails?.name || "User"}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{userRole}</p>
               </div>
-              <ChevronIcon
-                  className="float-right -rotate-90 transition-transform duration-200"
-                  stroke="currentColor"
-              />
             </div>
+            <ChevronIcon className="-rotate-90 opacity-60" stroke="currentColor" />
           </div>
 
-          {/* Navigation Items */}
-          <nav className="space-y-1">
-            {navItems
-                .filter((item) => !item.roles || item.roles.includes(userRole))
-                .map(renderNavItem)}
-          </nav>
+          {/* Department Navigation */}
+          <div className="space-y-6">
+            {departments.map((department) => {
+              const visibleItems = department.items.filter(
+                  (item) => !item.roles || item.roles.includes(userRole)
+              );
 
-          {/* Account Section Label */}
-          <div className="px-4 py-2 text-sm mt-6 mb-2 text-gray-500 dark:text-gray-400">
-            ACCOUNT
+              if (visibleItems.length === 0) return null;
+
+              return (
+                  <div key={department.name}>
+                    <div className="px-1 py-2 text-xs mb-3 tracking-wider uppercase text-gray-500 dark:text-gray-400 font-semibold">
+                      {department.name}
+                    </div>
+                    <nav className="space-y-1">
+                      {visibleItems.map((item) => (
+                          <NavRow key={item.label} item={item} />
+                      ))}
+                    </nav>
+                  </div>
+              );
+            })}
           </div>
 
-          {/* Account Items */}
-          <nav className="space-y-1">
-            {accountItems.map(renderNavItem)}
+          {/* Account Section */}
+          <div className="mt-8">
+            <div className="px-1 py-2 text-xs mb-3 tracking-wider uppercase text-gray-500 dark:text-gray-400 font-semibold">
+              Account
+            </div>
+            <nav className="space-y-1">
+              {accountItems.map((item) => (
+                  <NavRow key={item.label} item={item} />
+              ))}
 
-            <button
-                className="w-full flex items-center px-4 py-2.5 text-red-500 transition-all duration-200 ease-in-out hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg mt-4"
-                onClick={logout}
-            >
-              <svg
-                  width="20"
-                  height="21"
-                  viewBox="0 0 20 21"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="mr-3"
+              <button
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-red-500 rounded-lg mt-4 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20"
+                  onClick={logout}
               >
-                <path
-                    d="M15 8.00004C15 8.00004 11.3176 13 10 13C8.68233 13 5 8 5 8"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                />
-              </svg>
-              Logout
-            </button>
-          </nav>
-        </div>
+                <LogOut className="w-5 h-5" />
+                <span className="text-sm font-medium">Logout</span>
+              </button>
+            </nav>
+          </div>
+        </aside>
 
-        {/* Background Overlay for Mobile */}
+        {/* Mobile Overlay */}
         {isSidebarOpen && (
             <div
-                className="fixed inset-0 bg-black bg-opacity-50 md:hidden z-30"
+                className="fixed inset-0 bg-black/40 md:hidden z-30"
                 onClick={() => setSidebarOpen(false)}
-            ></div>
+            />
         )}
       </>
   );
-
 };
+
 export default Sidebar;

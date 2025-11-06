@@ -1,5 +1,4 @@
-import { OllamaAPI } from '@/helpers/ollama';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import ReactQuill, { QuillOptions } from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import Alert, { AlertDescription } from './alert';
@@ -24,83 +23,13 @@ export const DraftPad: React.FC<DraftPadProps> = ({
     onChange,
 }) => {
     const [content, setContent] = useState(initialContent);
-    const [suggestion, setSuggestion] = useState('');
-    const [showSuggestion, setShowSuggestion] = useState(false);
-    const [quillRef, setQuillRef] = useState<any>(null);
-    const [ollama] = useState(() => new OllamaAPI());
-    const [isLoading, setIsLoading] = useState(false);
-
-    // Function to get the current sentence being typed
-    const getCurrentSentence = (text: string): string => {
-        const plainText = text.replace(/<[^>]*>/g, '');
-        const sentences = plainText.split(/[.!?]\s+/);
-        return sentences[sentences.length - 1].trim();
-    };
-
-    // Generate suggestion using Ollama
-    const generateSuggestion = async (text: string) => {
-        const currentSentence = getCurrentSentence(text);
-
-        // Only get suggestions for sentences with 3 or more words
-        if (currentSentence.split(' ').length >= 3) {
-            setIsLoading(true);
-            try {
-                const suggestion = await ollama.getSuggestion(currentSentence);
-
-                setSuggestion(suggestion.trim());
-                setShowSuggestion(!!suggestion.trim());
-            } catch (error) {
-                console.error('Error getting suggestion:', error);
-                setSuggestion('');
-                setShowSuggestion(false);
-            } finally {
-                setIsLoading(false);
-            }
-        } else {
-            setSuggestion('');
-            setShowSuggestion(false);
-        }
-    };
 
     const handleChange = (value: string) => {
         setContent(value);
         if (onChange) {
             onChange(value);
         }
-
-        // Debounce suggestion generation
-        const timeoutId = setTimeout(() => {
-            generateSuggestion(value);
-        }, 500);
-
-        return () => clearTimeout(timeoutId);
     };
-
-    // Handle tab key to accept suggestion
-    const handleKeyDown = (event: KeyboardEvent) => {
-        if (event.key === 'Tab' && showSuggestion) {
-            event.preventDefault();
-            if (quillRef) {
-                const editor = quillRef.getEditor();
-                const selection = editor.getSelection();
-                if (selection) {
-                    // Insert the suggestion at the current cursor position
-                    editor.insertText(selection.index, suggestion);
-                    editor.setSelection(selection.index + suggestion.length);
-                }
-            }
-            setSuggestion('');
-            setShowSuggestion(false);
-        }
-    };
-
-    // Set up keyboard listener
-    useEffect(() => {
-        document.addEventListener('keydown', handleKeyDown);
-        return () => {
-            document.removeEventListener('keydown', handleKeyDown);
-        };
-    }, [suggestion, showSuggestion, content]);
 
     const modules: QuillOptions["modules"] = {
         toolbar: {
@@ -132,7 +61,6 @@ export const DraftPad: React.FC<DraftPadProps> = ({
     return (
         <div className="email-editor relative">
             <ReactQuill
-                ref={(el) => setQuillRef(el)}
                 theme="snow"
                 value={content}
                 onChange={handleChange}
@@ -141,16 +69,6 @@ export const DraftPad: React.FC<DraftPadProps> = ({
                 placeholder={placeholder}
                 style={{ height }}
             />
-
-            {(showSuggestion || isLoading) && (
-                <div className="absolute left-0 right-0 bottom-0 bg-gray-100 p-2 rounded-md text-sm text-gray-600 border border-gray-200">
-                    {isLoading ? (
-                        <span>Thinking...</span>
-                    ) : (
-                        <span>Suggestion (press Tab): {suggestion}</span>
-                    )}
-                </div>
-            )}
 
             <style jsx global>{`
         .ql-editor {
@@ -169,39 +87,7 @@ export const DraftPad: React.FC<DraftPadProps> = ({
     );
 };
 
-// Define rejection reasons with their associated prompts
-const rejectionReasons = [
-    {
-        id: 'certificate_of_incorporation',
-        label: 'Certificate of Incorporation',
-        prompt: 'Generate a professional rejection email explaining that the submitted Certificate of Incorporation is incomplete, invalid, or does not meet our compliance requirements. Specify what additional documentation or corrections are needed.'
-    },
-    {
-        id: 'status_report',
-        label: 'Status Report',
-        prompt: 'Generate a professional rejection email detailing why the submitted Status Report fails to meet our compliance standards. Highlight specific areas of concern and what additional information is required.'
-    },
-    {
-        id: 'aml_policy',
-        label: 'Anti-Money Laundering Policy',
-        prompt: 'Generate a professional rejection email explaining how the submitted documents do not comply with our Anti-Money Laundering Policy. Provide clear guidance on the specific compliance gaps that need to be addressed.'
-    },
-    {
-        id: 'memorandum_articles',
-        label: 'Memorandum and Articles of Association',
-        prompt: 'Generate a professional rejection email highlighting deficiencies in the Memorandum and Articles of Association. Specify the exact compliance requirements that have not been met and what corrections are necessary.'
-    },
-    {
-        id: 'aml_cft_questionnaire',
-        label: 'Completed AML/CFT Questionnaire',
-        prompt: 'Generate a professional rejection email explaining the discrepancies or incomplete sections in the Completed AML/CFT Questionnaire. Provide specific guidance on what additional information is required to meet compliance standards.'
-    },
-    {
-        id: 'kyc_policy',
-        label: 'KYC Policy',
-        prompt: 'Generate a professional rejection email detailing how the submitted documents fail to meet our Know Your Customer (KYC) Policy requirements. Specify the exact documentation or verification steps needed to proceed.'
-    }
-];
+
 interface RejectionComposerProps {
     userData: {
         name: string;
@@ -209,6 +95,7 @@ interface RejectionComposerProps {
         submissionDate: string;
         merchantId: string;
     };
+    availableDocuments?: any[];
     onSend: (content: string) => void;
     onCancel: () => void;
     fullScreen: boolean
@@ -216,61 +103,14 @@ interface RejectionComposerProps {
 
 export const RejectionComposer: React.FC<RejectionComposerProps> = ({
     userData,
+    availableDocuments = [],
     onSend,
     onCancel,
     fullScreen,
 }) => {
     const [content, setContent] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [selectedReason, setSelectedReason] = useState<string | null>(null);
-    const url = process.env.NEXT_PUBLIC_AI_BASE_URL
-    console.log("url", url)
-
-    // Initialize Ollama API handler
-    const ollama = {
-        async generateResponse(prompt: string): Promise<string> {
-            try {
-                const response = await fetch(`${process.env.NEXT_PUBLIC_AI_BASE_URL}/generate`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        model: 'llama3.2',
-                        prompt: `You are a compliance officer writing a rejection letter body sent from Cashonrails. 
-                    The applicant's name is ${userData.name}.
-                    Their application ID is ${userData.applicationId}.
-                    The submission date was ${userData.submissionDate}.
-                    ${prompt}
-                    Keep the tone professional, clear, and provide next steps if applicable. And do not include any pre-response, I just need a precise response and no end greetings, Yours sincerely Scott Lexium`,
-                        stream: false,
-                        options: {
-                            temperature: 0.7
-                        }
-                    })
-                });
-
-                const data = await response.json();
-                return data.response;
-            } catch (error) {
-                console.error('Error generating response:', error);
-                throw error;
-            }
-        }
-    };
-
-    const handleReasonClick = async (reason: typeof rejectionReasons[0]) => {
-        setIsLoading(true);
-        setSelectedReason(reason.id);
-
-        try {
-            const generatedContent = await ollama.generateResponse(reason.prompt);
-            setContent(generatedContent);
-        } catch (error) {
-            console.error('Error:', error);
-            setContent('Error generating content. Please try again or compose manually.');
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
+    const { addFlaggedDocument, removeFlaggedDocument, flaggedDocuments, clearFlaggedDocuments } = useUI();
 
     const modules: QuillOptions["modules"] = {
         toolbar: {
@@ -290,13 +130,52 @@ export const RejectionComposer: React.FC<RejectionComposerProps> = ({
         }
     };
 
-    const { flaggedDocuments, clearFlaggedDocuments, removeFlaggedDocument } = useUI()
     const merchantDocs = flaggedDocuments[userData.merchantId] || [];
-    console.log("merchantDocs", merchantDocs)
+    console.log("merchantDocs", merchantDocs);
+
+    const handleDocumentSelect = (doc: any) => {
+        const isAlreadyFlagged = merchantDocs.some(flagged => flagged.id === doc.info);
+        if (isAlreadyFlagged) {
+            removeFlaggedDocument(doc.info, userData.merchantId);
+        } else {
+            addFlaggedDocument(
+                { id: doc.info, name: doc.info },
+                userData.merchantId
+            );
+        }
+    };
 
     return (
         <div className={`${fullScreen ? 'p-6 w-full h-full mx-auto' : 'p-6 max-w-3xl mx-auto'} relative`}>
             <div className="space-y-6 h-full">
+                {/* Available Documents Selection */}
+                {availableDocuments.length > 0 && (
+                    <div className="space-y-3">
+                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Select documents that need correction:
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                            {availableDocuments.map((doc) => {
+                                const isSelected = merchantDocs.some(flagged => flagged.id === doc.info);
+                                return (
+                                    <button
+                                        key={doc.id}
+                                        onClick={() => handleDocumentSelect(doc)}
+                                        className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                                            isSelected
+                                                ? 'bg-red-100 text-red-700 border border-red-300 hover:bg-red-200'
+                                                : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600'
+                                        }`}
+                                    >
+                                        {StringUtils.capitalizeWords(doc.info)}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* Selected/Flagged Documents Display */}
                 <div className="flex flex-wrap gap-2">
                     {merchantDocs.map((flagged) => (
                         <div
@@ -317,54 +196,42 @@ export const RejectionComposer: React.FC<RejectionComposerProps> = ({
                     </button>}
                 </div>
 
-                {selectedReason && (
-                    <Alert variant='warning' description={" Editing this message before sending is recommended to ensure it accurately reflects the specific situation."} />
-                )}
-
                 <div className="min-h-[300px] h-[80%]">
-                    {isLoading ? (
-                        <div className="flex items-center justify-center h-full">
-                            <div className="text-gray-500">Generating content...</div>
-                        </div>
-                    ) : (
-                        <ReactQuill
-                            theme="snow"
-                            value={content}
-                            onChange={setContent}
-                            modules={modules}
-                            scrollingContainer={"scroll"}
-                            style={{ height: "fit-content" }}
-                            placeholder="Select a reason above or start composing your message..."
-                        />
-                    )}
+                    <ReactQuill
+                        theme="snow"
+                        value={content}
+                        onChange={setContent}
+                        modules={modules}
+                        scrollingContainer={"scroll"}
+                        style={{ height: "fit-content" }}
+                        placeholder="Start composing your rejection message..."
+                    />
                 </div>
             </div>
             <div className="flex justify-end space-x-4">
                 <button
-                    // onClick={() => handleReasonClick(flagged.name)}
-                    className="flex-grow md:flex-grow-1 bg-[#F1FDF6] text-[#01AB79] border-[#01AB79] border p-1 rounded-md"
-                    // disabled={isLoading}
-                    disabled={true}
-                >
-                    Compose with Ai (disabled)
-                </button>
-                <button
                     onClick={onCancel}
-                    disabled={isLoading}
+                    className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
                 >
                     Cancel
                 </button>
                 <button
-                    className={`${content ? 'flex-grow md:flex-grow-0 bg-[#F1FDF6] text-[#01AB79] border-[#01AB79] border p-1 rounded-md': 'opacity-5'}`}
+                    className={`px-4 py-2 rounded-md ${
+                        content 
+                            ? 'bg-[#01AB79] text-white hover:bg-[#019A6B]' 
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
                     onClick={() => onSend(content)}
-                    disabled={isLoading || !content}
+                    disabled={!content}
                 >
-                    {!content ? <Tooltip text={'No content'}>
-                        Send Rejection
-                    </Tooltip> : <>
-                        Send Rejection</>}
+                    {!content ? (
+                        <Tooltip text={'No content'}>
+                            Send Rejection
+                        </Tooltip>
+                    ) : (
+                        'Send Rejection'
+                    )}
                 </button>
-
             </div>
             <style jsx global>{`
         .ql-editor {

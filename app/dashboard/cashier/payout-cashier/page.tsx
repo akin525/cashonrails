@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, FormEvent, ChangeEvent } from "react";
+import React, { useState, useEffect, FormEvent, ChangeEvent, useCallback } from "react";
 import axiosInstance from '@/helpers/axiosInstance';
 import Header from "@/app/dashboard/cashier/payout-cashier/Header";
 import { useAuth } from "@/contexts/authContext";
@@ -12,7 +12,7 @@ interface Bank {
 }
 
 interface Business {
-    id: string;
+    merchant_id: string;
     merchant_name: string;
 }
 
@@ -25,7 +25,7 @@ export default function ManualPayout() {
     const [narration, setNarration] = useState("");
     const [sessionId, setSessionId] = useState("");
     const [sysFee, setSysFee] = useState("");
-    const [gateway, setGateway] = useState("");
+    const [gateway, setGateway] = useState("Cashonrails");
     const [loading, setLoading] = useState(false);
     const { authState } = useAuth();
     const [search, setSearch] = useState("");
@@ -34,29 +34,14 @@ export default function ManualPayout() {
     const [selectedBizId, setSelectedBizId] = useState("");
     const [currency, setCurrency] = useState("NGN");
 
-    useEffect(() => {
-        if (currency) {
-            axiosInstance.get(`/finance/bank_list/${currency}`, {
-                headers: { Authorization: `Bearer ${authState.token}` },
-            })
-                .then(response => setBankList(response.data.data.banks || []))
-                .catch(err => console.error("Error fetching banks", err));
-        }
-    }, [currency]);
-
-    useEffect(() => {
-        if (accountNumber.length === 10 && bankCode) {
-            verifyAccount();
-        }
-    }, [accountNumber, bankCode]);
-
-    const verifyAccount = async () => {
-        if (!accountNumber || !bankCode) return;
+    // Move verifyAccount to useCallback to make it stable
+    const verifyAccount = useCallback(async () => {
+        if (!accountNumber || !bankCode || !authState.token) return;
         setLoading(true);
         try {
             const response = await axiosInstance.post(
                 "/finance/account_name",
-                { account_number: accountNumber, bank_code: bankCode },
+                { account_number: accountNumber, bank_code: bankCode, currency: currency },
                 { headers: { Authorization: `Bearer ${authState.token}` } }
             );
             setAccountName(response.data.data || "");
@@ -65,16 +50,11 @@ export default function ManualPayout() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [accountNumber, bankCode, currency, authState.token]);
 
-    useEffect(() => {
-        const debounceTime = 500;
-        const timeoutId = setTimeout(fetchBusinesses, debounceTime);
-        return () => clearTimeout(timeoutId);
-    }, [search]);
-
-    const fetchBusinesses = async () => {
-        if (search.trim()) {
+    // Move fetchBusinesses to useCallback to make it stable
+    const fetchBusinesses = useCallback(async () => {
+        if (search.trim() && authState.token) {
             setLoading(true);
             setError(null);
             try {
@@ -91,7 +71,29 @@ export default function ManualPayout() {
         } else {
             setBusinesses([]);
         }
-    };
+    }, [search, authState.token]);
+
+    useEffect(() => {
+        if (currency && authState.token) {
+            axiosInstance.get(`/finance/bank_list/${currency}`, {
+                headers: { Authorization: `Bearer ${authState.token}` },
+            })
+                .then(response => setBankList(response.data.data.banks || []))
+                .catch(err => console.error("Error fetching banks", err));
+        }
+    }, [currency, authState.token]); // Added authState.token
+
+    useEffect(() => {
+        if (accountNumber.length === 10 && bankCode) {
+            verifyAccount();
+        }
+    }, [accountNumber, bankCode, verifyAccount]); // Added verifyAccount
+
+    useEffect(() => {
+        const debounceTime = 500;
+        const timeoutId = setTimeout(fetchBusinesses, debounceTime);
+        return () => clearTimeout(timeoutId);
+    }, [fetchBusinesses]); // Added fetchBusinesses
 
     const handleChange = (setter: React.Dispatch<React.SetStateAction<string>>) =>
         (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setter(e.target.value);
@@ -100,22 +102,29 @@ export default function ManualPayout() {
         e.preventDefault();
         setLoading(true);
         try {
-      const response=    await axiosInstance.post("/finance/create-manual-payout", {
-                headers: { Authorization: `Bearer ${authState.token}` },
-                currency,
-                account_number: accountNumber,
-                account_name: accountName,
-                bank_code: bankCode,
-                amount,
-                narration,
-                session_id: sessionId,
-                sys_fee: sysFee,
-                gateway,
-            });
-            if (String(response.data?.success) === "true") {
-                toast.success(String(response.data?.message));
+            const response = await axiosInstance.post(
+                `/finance/create-manual-payout/${selectedBizId}`,
+                {
+                    currency,
+                    account_number: accountNumber,
+                    account_name: accountName,
+                    bank_code: bankCode,
+                    amount,
+                    narration,
+                    session_id: sessionId,
+                    sys_fee: sysFee,
+                    gateway,
+                },
+                {
+                    headers: { Authorization: `Bearer ${authState.token}` },
+                    timeout: 3000000, // 30 seconds
+                }
+            );
+
+            if (response.data?.success) {
+                toast.success(response.data?.message || "Payout successful");
             } else {
-                toast.error(response.data?.message || "Failed to process payout.");
+                toast.success(response.data?.message || "Failed to process payout.");
             }
 
         } catch (err) {
@@ -145,7 +154,7 @@ export default function ManualPayout() {
                                 onChange={handleChange(setSelectedBizId)} value={selectedBizId}>
                                 <option value="">Select a business</option>
                                 {businesses.map((biz) => (
-                                    <option key={biz.id} value={biz.id}>{biz.merchant_name}</option>
+                                    <option key={biz.merchant_id} value={biz.merchant_id}>{biz.merchant_name}</option>
                                 ))}
                             </select>
                         )}
@@ -165,7 +174,7 @@ export default function ManualPayout() {
                         <select value={bankCode} onChange={(e) => setBankCode(e.target.value)}
                                 className="w-full p-2 border rounded-md focus:ring-2 focus:ring-green-400" required>
                             <option value="">Select Bank</option>
-                            {bankList.map((bank: Bank) => ( // Fixed: Explicitly type bank
+                            {bankList.map((bank: Bank) => (
                                 <option key={bank.code} value={bank.code}>{bank.name}</option>
                             ))}
                         </select>

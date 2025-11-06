@@ -35,7 +35,30 @@ export default function SystemCalculator() {
         { name: "Funding", value: "funding" }
     ];
     const dateTypeOptions = ["all", "Range"];
-    const currencyOptions = ["NGN", "USD", "EUR"];
+    const currencyOptions = [
+        "NGN", // Nigerian Naira
+        "USD", // US Dollar
+        "EUR", // Euro
+        "GHS", // Ghanaian Cedi
+        "KES", // Kenyan Shilling
+        "ZAR", // South African Rand
+        "EGP", // Egyptian Pound
+        "TZS", // Tanzanian Shilling
+        "UGX", // Ugandan Shilling
+        "XOF", // West African CFA Franc (used in 8 countries)
+        "XAF", // Central African CFA Franc (used in 6 countries)
+        "DZD", // Algerian Dinar
+        "MAD", // Moroccan Dirham
+        "BWP", // Botswana Pula
+        "ZMW", // Zambian Kwacha
+        "MZN", // Mozambican Metical
+        "SDG", // Sudanese Pound
+        "RWF", // Rwandan Franc
+        "ETB", // Ethiopian Birr
+        "LYD", // Libyan Dinar
+        ""
+    ];
+
 
     const endpointMap: Record<string, string> = {
         "System Transaction Calculator": "/transactions-cal",

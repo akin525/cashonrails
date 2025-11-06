@@ -54,7 +54,7 @@ const Page = () => {
     const [showSettleConfirmation, setShowSettleConfirmation] = useState<null | TransactionData>(null);
     const [activeFilter, setActiveFilter] = useState<string>('Total');
 
-    const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 1, limit: 20 });
+    const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 1, limit: 10 });
     const [loading, setLoading] = useState<boolean>(true);
     const [data, setData] = useState<TransactionData[]>([]);
     const [currentPage, setCurrentPage] = useState<number>(1);

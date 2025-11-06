@@ -85,7 +85,8 @@ const Page: React.FC = () => {
         status: typedFilterState.status,
         start_date: filterState.dateRange.startDate,
         end_date: filterState.dateRange.endDate,
-    }), [filterState]);
+    }), [typedFilterState.status, filterState.dateRange.startDate, filterState.dateRange.endDate]);
+
 
     const fetchData = useCallback(async (page: number) => {
         if (!authState.token) return;

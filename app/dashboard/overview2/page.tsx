@@ -271,13 +271,18 @@ const PaymentCards: React.FC = () => {
     const [loadingCards, setLoadingCards] = useState(true);
     const [statsData, setStatsData] = useState<any>();
     const [selectedCategory, setSelectedCategory] = useState<CategoryKeys | "all">("all");
-    const [currency, setCurrency] = useState<"NGN" | "USD">("NGN");
+    const [currency, setCurrency] = useState<"NGN" | "USD" | "KES">("NGN");
 
     // Local state for date selection
-    const [startDate, setStartDate] = useState<string>(() =>
-        filterState.dateRange?.startDate ||
-        new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-    );
+    const [startDate, setStartDate] = useState<string>(() => {
+        if (filterState.dateRange?.startDate) {
+            return filterState.dateRange.startDate;
+        }
+        const twoDaysAgo = new Date();
+        twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+        return twoDaysAgo.toISOString().slice(0, 10);
+    });
+
 
     const [endDate, setEndDate] = useState<string>(() =>
         filterState.dateRange?.endDate || new Date().toISOString().slice(0, 10)

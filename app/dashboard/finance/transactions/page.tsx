@@ -1,5 +1,5 @@
 "use client"
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import { FilterState, useUI } from '@/contexts/uiContext';
 import {
     ActiveShopIcon,
@@ -21,10 +21,11 @@ import axiosInstance from '@/helpers/axiosInstance';
 import { MetricCard, MetricCardProps } from '@/components/MatricCard';
 import Modal from '@/components/modal';
 import Buttons from '@/components/buttons';
-import {FileSpreadsheet, PackageSearch} from "lucide-react";
+import {Download, FileSpreadsheet, PackageSearch} from "lucide-react";
 import toast from "react-hot-toast";
 import {string} from "postcss-selector-parser";
 import {debounce} from "next/dist/server/utils";
+import html2canvas from 'html2canvas';
 
 
 
@@ -208,7 +209,7 @@ const Page: React.FC = () => {
     const [data1, setData1] = useState<Response | undefined>(undefined);
     const [loading, setLoading] = useState<boolean>(true);
     const [currentPage, setCurrentPage] = useState<number>(1);
-    const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 1, limit: 50 });
+    const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 1, limit: 10 });
     const [pagination1, setPagination1] = useState({ totalItems: 0, totalPages: 1, limit: 100 });
     const { authState } = useAuth()
     const typedFilterState = filterState as FilterState;
@@ -216,10 +217,40 @@ const Page: React.FC = () => {
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [showModal, setShowModal] = useState(false);
+    const transactionReceiptRef = useRef<HTMLDivElement>(null);
 
 // Filter data based on search input
 
+    const handleScreenshot = async () => {
+        if (!transactionReceiptRef.current || !modalData) return;
 
+        try {
+            const canvas = await html2canvas(transactionReceiptRef.current, {
+                backgroundColor: '#ffffff',
+                scale: 2, // Higher quality
+                logging: false,
+                useCORS: true,
+            });
+
+            // Convert to blob and download
+            canvas.toBlob((blob) => {
+                if (blob) {
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `transaction-$${modalData.reference}-$$ {Date.now()}.png`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    toast.success('Transaction proof downloaded successfully!');
+                }
+            });
+        } catch (error) {
+            console.error('Error capturing screenshot:', error);
+            toast.error('Failed to capture screenshot');
+        }
+    };
 
     const queryParams = useMemo(() => ({
         status: typedFilterState.status,
@@ -255,7 +286,7 @@ const Page: React.FC = () => {
                 timeout: 60000
             });
             setData(response.data?.data);
-            setPagination(response.data.pagination ? response.data.pagination : { totalItems: 0, totalPages: 1, limit: 20 });
+            setPagination(response.data.pagination ? response.data.pagination : { totalItems: 0, totalPages: 1, limit: 10 });
         } catch (error) {
             console.error("Error fetching data:", error);
         } finally {
@@ -412,163 +443,162 @@ const Page: React.FC = () => {
                 header={
                     <div className="space-y-4">
                         <h2 className="text-xl font-semibold text-gray-500">Transaction Details</h2>
-                        <div className="flex gap-4">
-                            <Buttons onClick={() => router.push(`/dashboard/operations/merchant/${modalData?.business_id}/business` as RouteLiteral)} label="Go to business" type="smOutlineButton" />
+                        <div className="flex gap-4 flex-wrap">
+                            <Buttons
+                                onClick={() => router.push(`/dashboard/operations/merchant/${modalData?.business_id}/business` as RouteLiteral)}
+                                label="Go to business"
+                                type="smOutlineButton"
+                            />
                             <Buttons
                                 onClick={() => resendwebhook(modalData?.business_id as any, modalData?.id)}
                                 label={loading ? "Sending..." : "Resend Notification"}
-                                fullWidth
                                 type="smOutlineButton"
                                 disabled={loading}
                             />
-
+                            {/* New Screenshot Button */}
+                            <button
+                                onClick={handleScreenshot}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition shadow-md"
+                            >
+                                <Download className="w-4 h-4" />
+                                Download Proof
+                            </button>
                         </div>
                     </div>
                 }
                 scrollableContent={true}
             >
-                {modalData ? (
-                    <div className="space-y-4 p-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Transaction Fields */}
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Transaction ID:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.id}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Gateway:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.gateway}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Business ID:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.business_id}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Currency:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.currency}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Amount:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.amount}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Request Amount:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.requested_amount}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Fee:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.fee}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>System Fee:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.sys_fee}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Stamp Duty:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.stamp_duty}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Card Attempt:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.card_attempt}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Total:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.total}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Transaction Reference:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.trx}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Reference:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.reference}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Type:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.type}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Channel:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.channel}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Status:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.status}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>webhook Status:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.webhook_status}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>webhook Count:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.webhook_count}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Paid At:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">
-                                    {moment(modalData.paid_at).format('MMMM Do YYYY, h:mm:ss a')}
+                {/* Wrap the content in a ref div for screenshot */}
+                <div ref={transactionReceiptRef} className="bg-white">
+                    {modalData ? (
+                        <div className="space-y-4 p-6">
+                            {/* Header for Receipt */}
+                            <div className="text-center border-b pb-4">
+                                <h1 className="text-2xl font-bold text-gray-800">Transaction Receipt</h1>
+                                <p className="text-sm text-gray-500 mt-1">
+                                    Generated on {new Date().toLocaleString()}
                                 </p>
                             </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Created At:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">
-                                    {moment(modalData.created_at).format('MMMM Do YYYY, h:mm:ss a')}
+
+                            {/* Transaction Status Banner */}
+                            <div className={`p-4 rounded-lg text-center ${
+                                modalData.status === 'success' ? 'bg-green-100 border border-green-300' :
+                                    modalData.status === 'pending' ? 'bg-yellow-100 border border-yellow-300' :
+                                        'bg-red-100 border border-red-300'
+                            }`}>
+                                <p className="text-lg font-semibold capitalize">
+                                    Status: {modalData.status}
                                 </p>
                             </div>
-                        </div>
 
-                        {/* Business Details */}
-                        <div className="mt-6">
-                            <h3 className="text-lg font-semibold text-gray-800">Business Details</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                                <div className="space-y-2">
-                                    <p className="text-sm text-gray-600"><strong>Business Name:</strong></p>
-                                    <p className="text-sm font-medium text-gray-800">{modalData.business.name}</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Transaction Fields */}
+                                <div className="space-y-2 p-3 bg-gray-50 rounded">
+                                    <p className="text-xs text-gray-500 uppercase">Transaction ID</p>
+                                    <p className="text-sm font-semibold text-gray-800">{modalData.id}</p>
                                 </div>
-                                <div className="space-y-2">
-                                    <p className="text-sm text-gray-600"><strong>Business Email:</strong></p>
-                                    <p className="text-sm font-medium text-gray-800">{modalData.business.biz_email}</p>
+                                <div className="space-y-2 p-3 bg-gray-50 rounded">
+                                    <p className="text-xs text-gray-500 uppercase">Reference</p>
+                                    <p className="text-sm font-semibold text-gray-800">{modalData.reference}</p>
                                 </div>
-                                <div className="space-y-2">
-                                    <p className="text-sm text-gray-600"><strong>Business Phone:</strong></p>
-                                    <p className="text-sm font-medium text-gray-800">{modalData.business.biz_phone}</p>
+                                <div className="space-y-2 p-3 bg-gray-50 rounded">
+                                    <p className="text-xs text-gray-500 uppercase">Gateway</p>
+                                    <p className="text-sm font-semibold text-gray-800">{modalData.gateway}</p>
                                 </div>
-                                <div className="space-y-2">
-                                    <p className="text-sm text-gray-600"><strong>Business Address:</strong></p>
-                                    <p className="text-sm font-medium text-gray-800">{modalData.business.biz_address}</p>
+                                <div className="space-y-2 p-3 bg-gray-50 rounded">
+                                    <p className="text-xs text-gray-500 uppercase">Currency</p>
+                                    <p className="text-sm font-semibold text-gray-800">{modalData.currency}</p>
+                                </div>
+                                <div className="space-y-2 p-3 bg-green-50 rounded border border-green-200">
+                                    <p className="text-xs text-gray-500 uppercase">Amount</p>
+                                    <p className="text-lg font-bold text-green-700">
+                                        {modalData.currency === 'NGN' ? '₦' : modalData.currency === 'USD' ? '$' : ''}
+                                        {Number(modalData.amount).toLocaleString()}
+                                    </p>
+                                </div>
+                                <div className="space-y-2 p-3 bg-gray-50 rounded">
+                                    <p className="text-xs text-gray-500 uppercase">Fee</p>
+                                    <p className="text-sm font-semibold text-gray-800">{modalData.fee}</p>
+                                </div>
+                                <div className="space-y-2 p-3 bg-gray-50 rounded">
+                                    <p className="text-xs text-gray-500 uppercase">Type</p>
+                                    <p className="text-sm font-semibold text-gray-800 capitalize">{modalData.type}</p>
+                                </div>
+                                <div className="space-y-2 p-3 bg-gray-50 rounded">
+                                    <p className="text-xs text-gray-500 uppercase">Channel</p>
+                                    <p className="text-sm font-semibold text-gray-800 capitalize">{modalData.channel}</p>
+                                </div>
+                                <div className="space-y-2 p-3 bg-gray-50 rounded col-span-1 md:col-span-2">
+                                    <p className="text-xs text-gray-500 uppercase">Transaction Date</p>
+                                    <p className="text-sm font-semibold text-gray-800">
+                                        {moment(modalData.created_at).format('MMMM Do YYYY, h:mm:ss a')}
+                                    </p>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Collapsible Gateway Response Section */}
-                        <div className="mt-6">
-                            <button
-                                onClick={() => setShowGatewayResponse(!showGatewayResponse)}
-                                className="flex items-center justify-between w-full p-3 bg-gray-100 rounded-lg hover:bg-gray-200 focus:outline-none"
+                            {/* Business Details */}
+                            <div className="mt-6 border-t pt-4">
+                                <h3 className="text-lg font-semibold text-gray-800 mb-3">Business Details</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2 p-3 bg-gray-50 rounded">
+                                        <p className="text-xs text-gray-500 uppercase">Business Name</p>
+                                        <p className="text-sm font-semibold text-gray-800">{modalData.business.name}</p>
+                                    </div>
+                                    <div className="space-y-2 p-3 bg-gray-50 rounded">
+                                        <p className="text-xs text-gray-500 uppercase">Email</p>
+                                        <p className="text-sm font-semibold text-gray-800">{modalData.business.biz_email}</p>
+                                    </div>
+                                    <div className="space-y-2 p-3 bg-gray-50 rounded">
+                                        <p className="text-xs text-gray-500 uppercase">Phone</p>
+                                        <p className="text-sm font-semibold text-gray-800">{modalData.business.biz_phone}</p>
+                                    </div>
+                                    <div className="space-y-2 p-3 bg-gray-50 rounded">
+                                        <p className="text-xs text-gray-500 uppercase">Address</p>
+                                        <p className="text-sm font-semibold text-gray-800">{modalData.business.biz_address}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="text-center text-xs text-gray-400 mt-6 pt-4 border-t">
+                                <p>This is a computer-generated receipt and requires no signature.</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <p className="text-center text-gray-600 py-4">Loading transaction details...</p>
+                    )}
+
+                    {/* Collapsible Gateway Response (outside screenshot area) */}
+                </div>
+
+                {/* Keep gateway response outside the screenshot area */}
+                {modalData && (
+                    <div className="mt-6 px-6 pb-6">
+                        <button
+                            onClick={() => setShowGatewayResponse(!showGatewayResponse)}
+                            className="flex items-center justify-between w-full p-3 bg-gray-100 rounded-lg hover:bg-gray-200 focus:outline-none"
+                        >
+                            <span className="text-sm font-medium text-gray-700">
+                                {showGatewayResponse ? 'Hide Gateway Response' : 'Show Gateway Response'}
+                            </span>
+                            <svg
+                                className={`w-5 h-5 transition-transform ${showGatewayResponse ? 'transform rotate-180' : ''}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
                             >
-                                <span className="text-sm font-medium text-gray-700">
-                                    {showGatewayResponse ? 'Hide Gateway Response' : 'Show Gateway Response'}
-                                </span>
-                                <svg
-                                    className={`w-5 h-5 transition-transform ${showGatewayResponse ? 'transform rotate-180' : ''}`}
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                >
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                </svg>
-                            </button>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
 
-                            {showGatewayResponse && modalData.gateway_response && (
-                                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                                    <pre className="text-sm text-gray-800">{JSON.stringify(JSON.parse(modalData.gateway_response), null, 2)}</pre>
-                                </div>
-                            )}
-                        </div>
+                        {showGatewayResponse && modalData.gateway_response && (
+                            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                                <pre className="text-sm text-gray-800 overflow-auto">
+                                    {JSON.stringify(JSON.parse(modalData.gateway_response), null, 2)}
+                                </pre>
+                            </div>
+                        )}
                     </div>
-                ) : (
-                    <p className="text-center text-gray-600 py-4">Loading transaction details...</p>
                 )}
             </Modal>
             <Header headerTitle={'Transactions'} />

@@ -18,6 +18,7 @@ import { MetricCard, MetricCardProps } from '@/components/MatricCard';
 import Modal from "@/components/modal";
 import Buttons from "@/components/buttons";
 import moment from "moment/moment";
+
 type FilterType = 'completed' | 'resolved' | 'ongoing' | 'refunded' | 'TotalChargebacks'
 
 interface TableData {
@@ -66,7 +67,6 @@ const COLUMNS: Column<TableData>[] = [
     { id: "date", label: "DATE INITIATED", minWidth: 120 },
 ];
 
-
 const Page: React.FC = () => {
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const { setShowHeader, setShowSearchQuery, setHeaderTitle, filterState, setFilterState } = useUI();
@@ -77,11 +77,10 @@ const Page: React.FC = () => {
     const [loading, setLoading] = useState<boolean>(true);
     const [data, setData] = useState<TableData[]>([]);
     const [currentPage, setCurrentPage] = useState<number>(1);
-    const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 1, limit: 20 });
-
+    const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 1, limit: 10 });
     const [searchQuery, setSearchQuery] = useState<string>("");
 
-// Filter data based on search input
+    // Filter data based on search input
     const filteredData = useMemo(() => {
         if (!data) return [];
         return data.filter((item) =>
@@ -90,15 +89,19 @@ const Page: React.FC = () => {
             )
         );
     }, [data, searchQuery]);
+
     const handleRefresh = async () => {
         setLoading(true);
         await fetchData(currentPage);
         setLoading(false);
     };
-    // const handleFilterApply = (filters: BusinessTypeFilterState) => {
-    //     setFilterState(filters);
-    //     setIsFilterOpen(false);
-    // };
+
+    // Fixed: Added missing dependency 'typedFilterState.status'
+    const queryParams = useMemo(() => ({
+        status: typedFilterState.status,
+        start_date: filterState.dateRange.startDate,
+        end_date: filterState.dateRange.endDate,
+    }), [typedFilterState.status, filterState.dateRange.startDate, filterState.dateRange.endDate]);
 
     const statsHook = useFetchHook<StatsData>({
         endpoint: '/finance/chargebacks/stats',
@@ -106,16 +109,11 @@ const Page: React.FC = () => {
         dependencies: [activeFilter],
         includeDateFilter: true,
         additionalParams: {
-            // status: typedFilterState.status,
+            status: typedFilterState.status,
             start_date: typedFilterState.dateRange.startDate,
             end_date: typedFilterState.dateRange.endDate,
         },
     });
-    const queryParams = useMemo(() => ({
-        status: typedFilterState.status,
-        start_date: filterState.dateRange.startDate,
-        end_date: filterState.dateRange.endDate,
-    }), [filterState]);
 
     const fetchData = useCallback(async (page: number) => {
         if (!authState.token) return;
@@ -124,8 +122,7 @@ const Page: React.FC = () => {
             const response = await axiosInstance.get<TableData[]>("/finance/chargebacks", {
                 params: { ...queryParams, page, limit: pagination.limit },
                 headers: { Authorization: `Bearer ${authState.token}` },
-                timeout:60000
-
+                timeout: 60000
             });
             setData(response.data?.data || []);
             setPagination(response.data?.pagination || { totalItems: 0, totalPages: 1, limit: 20 });
@@ -140,6 +137,7 @@ const Page: React.FC = () => {
         fetchData(currentPage);
     }, [fetchData, currentPage]);
 
+    // Fixed: Added missing dependencies
     useEffect(() => {
         setShowHeader(false);
         setHeaderTitle("Chargebacks");
@@ -150,15 +148,15 @@ const Page: React.FC = () => {
             setShowSearchQuery(false);
             setHeaderTitle("Dashboard");
         };
-    }, []);
+    }, [setShowHeader, setHeaderTitle, setShowSearchQuery]);
 
     const MetricCards: React.FC<{
         stats: StatsData;
         isLoading: boolean
     }> = ({
-        stats,
-        isLoading
-    }) => {
+              stats,
+              isLoading
+          }) => {
         const formatCurrency = (amount: number): string => {
             if (amount >= 1_000_000_000) {
                 return `₦${(amount / 1_000_000_000).toFixed(2)}B`;
@@ -170,12 +168,12 @@ const Page: React.FC = () => {
                 return `₦${amount.toLocaleString()}`;
             }
         };
+
         const CARD_CONFIGS: MetricCardProps[] = [
             {
                 title: "Total Chargebacks",
-                count: formatCurrency(stats.total_chargebacks ?? '0'),
+                count: formatCurrency(stats.total_chargebacks ?? 0),
             },
-
             {
                 title: "Resolved Chargebacks",
                 count: stats.resolved_chargebacks_count?.toString() || '0',
@@ -186,10 +184,9 @@ const Page: React.FC = () => {
             },
             {
                 title: "Total Amount Refunded",
-                count: stats.resolved_chargebacks_count?.toString() || '0',
+                count: formatCurrency(stats.total_refunded_amount ?? 0),
             },
         ];
-
 
         return (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-5">
@@ -233,7 +230,8 @@ const Page: React.FC = () => {
             ]
         }
     ];
-    const [modalData, setModalData] = useState<TableData | null>(null)
+
+    const [modalData, setModalData] = useState<TableData | null>(null);
 
     return (
         <div>
@@ -249,7 +247,6 @@ const Page: React.FC = () => {
                                 label="Go to business"
                                 type="smOutlineButton"
                             />
-                            {/*<Buttons label="Resend Notification" fullWidth type="smOutlineButton" />*/}
                         </div>
                     </div>
                 }
@@ -274,16 +271,22 @@ const Page: React.FC = () => {
                     <p className="text-center text-gray-600 py-4">Loading...</p>
                 )}
             </Modal>
+
             <Header headerTitle={'Chargebacks'} />
-            <MetricCards stats={statsHook.data ?? {
-                chargebacks_count_increase: 0,
-                resolved_chargebacks_count: 0,
-                resolved_chargebacks_count_increase: 0,
-                total_chargebacks: 0,
-                total_refunded_amount: 0,
-                unresolved_chargebacks_count: 0,
-                unresolved_chargebacks_count_increase: 0
-            }}  isLoading={statsHook.isLoading} />
+
+            <MetricCards
+                stats={statsHook.data ?? {
+                    chargebacks_count_increase: 0,
+                    resolved_chargebacks_count: 0,
+                    resolved_chargebacks_count_increase: 0,
+                    total_chargebacks: 0,
+                    total_refunded_amount: 0,
+                    unresolved_chargebacks_count: 0,
+                    unresolved_chargebacks_count_increase: 0
+                }}
+                isLoading={statsHook.isLoading}
+            />
+
             <div className="p-4 mt-4">
                 <div className='flex justify-between items-center gap-2 mb-5 z-50 relative'>
                     <p>Chargeback Requests</p>
@@ -296,12 +299,6 @@ const Page: React.FC = () => {
                             Download
                         </button>
                     </div>
-                    {/*<CustomFilter*/}
-                    {/*    isOpen={isFilterOpen}*/}
-                    {/*    onClose={() => setIsFilterOpen(false)}*/}
-                    {/*    onApply={handleFilterApply}*/}
-                    {/*    filterConfig={userFilterConfig}*/}
-                    {/*/>*/}
                 </div>
 
                 <div className="p-4">
@@ -342,8 +339,7 @@ const Page: React.FC = () => {
                     loading={loading}
                     onPaginate={setCurrentPage}
                     pagination={pagination}
-                    // onRowClick={(row) => router.push(`/dashboard/finance/chargebacks/${row.id}` as RouteLiteral)}
-                    onRowClick={(row) => setModalData(row)} // Handle row click
+                    onRowClick={(row) => setModalData(row)}
                 />
             </div>
         </div>

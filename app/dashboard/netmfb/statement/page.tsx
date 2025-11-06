@@ -74,7 +74,7 @@ const Netmfbstatement: React.FC = () => {
 
     useEffect(() => {
         fetchData();
-    }, []);
+    });
 
     const transformData = (data: Transaction[]) =>
         data

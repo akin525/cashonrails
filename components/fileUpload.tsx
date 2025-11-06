@@ -285,8 +285,23 @@ export function FileUpload({ label, maxSize, maxFiles, initiateUpload, allowedFi
     }
 
     useEffect(() => {
+        const handleUpload = async () => {
+            try {
+                if (!initiateUpload) return;
+                if (selectedFiles.length === 0) return;
+                if (fileToBeUploadedIndex.length === 0) return;
+
+                const promises = fileToBeUploadedIndex.map(fileIndex => uploadFile(fileIndex));
+                const results = await Promise.all(promises);
+                // console.log(results);
+            } catch (error) {
+                console.error(`Error fetching data: ${error}`);
+            }
+        };
+
         handleUpload();
-    }, [initiateUpload, fileToBeUploadedIndex])
+    }, [initiateUpload, fileToBeUploadedIndex, selectedFiles.length]);
+
 
 
     return (
@@ -352,7 +367,7 @@ export function FileUpload({ label, maxSize, maxFiles, initiateUpload, allowedFi
                                                             }`
                                                     }} className={`bg-[#2DD4BF] h-1 rounded-full`}></div></div>
                                                 </div>
-                                                
+
                                                 <div onClick={(event) => handleRemoveSelectedFiles(index, event)} className="w-[7%] flex justify-end cursor-pointer hover:opacity-60">
                                                 <svg width="40" height="40" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.5 13H12.1667M12.1667 13H25.5M12.1667 13V24.6667C12.1667 25.1087 12.3423 25.5326 12.6548 25.8452C12.9674 26.1578 13.3913 26.3334 13.8333 26.3334H22.1667C22.6087 26.3334 23.0326 26.1578 23.3452 25.8452C23.6577 25.5326 23.8333 25.1087 23.8333 24.6667V13H12.1667ZM14.6667 13V11.3334C14.6667 10.8913 14.8423 10.4674 15.1548 10.1548C15.4674 9.84228 15.8913 9.66669 16.3333 9.66669H19.6667C20.1087 9.66669 20.5326 9.84228 20.8452 10.1548C21.1577 10.4674 21.3333 10.8913 21.3333 11.3334V13M16.3333 17.1667V22.1667M19.6667 17.1667V22.1667" stroke="black" strokeWidth="1.66667" strokeLinecap="round" strokeLinejoin="round"/></svg>
                                                 </div>

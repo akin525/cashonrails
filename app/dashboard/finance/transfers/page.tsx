@@ -165,7 +165,7 @@ const Page: React.FC = () => {
     const [modalData, setModalData] = useState<TableData | null>(null);
     const [showGatewayResponse, setShowGatewayResponse] = useState(false);
 
-    const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 1, limit: 50 });
+    const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 1, limit: 10 });
 
     const typedFilterState = filterState as FilterState;
     const queryParams = useMemo(() => ({

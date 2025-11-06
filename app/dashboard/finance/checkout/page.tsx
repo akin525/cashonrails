@@ -15,7 +15,8 @@ import { MetricCard, MetricCardProps } from '@/components/MatricCard';
 import Modal from "@/components/modal";
 import Buttons from "@/components/buttons";
 import moment from "moment";
-import {PackageSearch} from "lucide-react";
+import {FileSpreadsheet, PackageSearch} from "lucide-react";
+import toast from "react-hot-toast";
 
 
 interface StatsData {
@@ -97,10 +98,31 @@ interface CombinedResponse {
 // Constants
 const TABLE_COLUMNS: Column<CheckoutData>[] = [
     { id: "business_id", label: "BUSINESS ID" },
-    { id: "account_name", label: "ACCOUNT NAME" },
-    { id: "account_number", label: "ACCOUNT NUMBER" },
-    { id: "bank_name", label: "BANK NAME" },
-    { id: "provider", label: "PROVIDER" },
+    { id: "transactionRef", label: "TRANSACTION REFERENCE" },
+    { id: "reference", label: "REFERENCE" },
+    { id: "paymentMethod", label: "PAYMENT METHOD" },
+    { id: "gateway", label: "GATEWAY" },
+    {
+        id: "amount",
+        label: "AMOUNT",
+        minWidth: 120,
+        type: "custom",
+        renderCustom: (row: CheckoutData) => (
+            <p>
+                {row.currency === 'NGN' ? '₦' : row.currency === 'USD' ? '$' : ''}
+                {Number(row.amount).toLocaleString()}
+            </p>
+        )
+    },
+
+    {
+        id: "currency",
+        label: "CURRENCY"
+    },
+    {
+        id: "fee",
+        label: "FEE"
+    },
     {
         id: "status",
         label: "STATUS",
@@ -167,8 +189,11 @@ const Page = () => {
     const [data, setData] = useState<CombinedResponse | undefined>(undefined);
     const [loading, setLoading] = useState<boolean>(true);
     const [currentPage, setCurrentPage] = useState<number>(1);
-    const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 1, limit: 50 });
+    const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 1, limit: 10 });
     const [searchQuery, setSearchQuery] = useState<string>("");
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
+    const [showModal, setShowModal] = useState(false);
 
 // Filter data based on search input
     const filteredData = useMemo(() => {
@@ -184,11 +209,8 @@ const Page = () => {
         await fetchData(currentPage);
         setLoading(false);
     };
-    const queryParams = useMemo(() => ({
-        status: typedFilterState.status,
-        start_date: filterState.dateRange.startDate,
-        end_date: filterState.dateRange.endDate,
-    }), [filterState]);
+
+
 
     const fetchData = useCallback(async (page: number) => {
         if (!authState.token) return;
@@ -207,7 +229,38 @@ const Page = () => {
         } finally {
             setLoading(false);
         }
-    }, [authState.token, queryParams, pagination.limit]);
+    }, [authState.token, pagination.limit]);
+
+
+    const exportToMail = async () => {
+        setLoading(true);
+
+        try {
+            const response = await axiosInstance.post('/export-checkout',
+                {
+                    start_date: startDate || null,
+                    end_date: endDate || null
+                },
+                {
+                    headers: { Authorization: `Bearer ${authState.token}` },
+                    timeout:60000
+                }
+            );
+
+            setLoading(false);
+            setShowModal(false); // Close modal
+
+            if (response.data.status) {
+                toast.success(response.data.message);
+            } else {
+                toast.error(response.data.message);
+            }
+        } catch (error) {
+            setLoading(false);
+            console.error("Error exporting transactions:", error);
+            toast.error("Failed to export transactions. Please try again.");
+        }
+    };
 
     useEffect(() => {
         fetchData(currentPage);
@@ -278,33 +331,42 @@ const Page = () => {
                         className="border-2 border-green-400 p-3 rounded-md w-full focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-lg font-semibold m-2"
                     />
 
-                    <button
-                        onClick={handleRefresh}
-                        disabled={loading}
-                        className="bg-green-500 text-white px-3 py-1 text-sm rounded-md hover:bg-green-600 transition flex items-center gap-2 m-2"
-                    >
-                        {loading ? (
-                            <svg
-                                className="w-4 h-4 animate-spin"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                xmlns="http://www.w3.org/2000/svg"
-                            >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                      d="M4 4v6h6M20 20v-6h-6m1-10a9 9 0 11-6.64 15.36"/>
-                            </svg>
-                        ) : (
-                            "Refresh"
-                        )}
-                    </button>
-                    <button
-                        onClick={() => router.push(`/dashboard/finance/search-checkout` as RouteLiteral)}
-                        className="bg-green-600 text-white px-4 py-2 text-sm font-medium rounded-lg hover:bg-green-700 transition flex items-center gap-2 shadow-md"
-                    >
-                        <PackageSearch className="w-5 h-5"/>
-                        <span>Search General Checkout</span>
-                    </button>
+                    <div className="flex items-center gap-2 m-2">
+                        <button
+                            onClick={handleRefresh}
+                            disabled={loading}
+                            className="bg-green-500 text-white px-3 py-1 text-sm rounded-md hover:bg-green-600 transition flex items-center gap-2 m-2"
+                        >
+                            {loading ? (
+                                <svg
+                                    className="w-4 h-4 animate-spin"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                          d="M4 4v6h6M20 20v-6h-6m1-10a9 9 0 11-6.64 15.36"/>
+                                </svg>
+                            ) : (
+                                "Refresh"
+                            )}
+                        </button>
+                        <button
+                            onClick={() => setShowModal(true)}
+                            className="bg-green-600 text-white px-4 py-2 text-sm font-medium rounded-lg hover:bg-green-700 transition flex items-center gap-2 shadow-md"
+                        >
+                            <FileSpreadsheet className="w-5 h-5"/>
+                            <span>Export All to CSV</span>
+                        </button>
+                        <button
+                            onClick={() => router.push(`/dashboard/finance/search-checkout` as RouteLiteral)}
+                            className="bg-green-600 text-white px-4 py-2 text-sm font-medium rounded-lg hover:bg-green-700 transition flex items-center gap-2 shadow-md"
+                        >
+                            <PackageSearch className="w-5 h-5"/>
+                            <span>Search General Checkout</span>
+                        </button>
+                    </div>
                 </div>
 
                 <Table<CheckoutData>
@@ -318,6 +380,40 @@ const Page = () => {
                     pagination={pagination}
 
                 />
+
+                {showModal && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
+                        <div className="bg-white p-6 rounded-lg shadow-lg w-96">
+                            <h2 className="text-lg font-semibold mb-4">Export Transactions</h2>
+
+                            <label className="block font-medium">Start Date:</label>
+                            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+                                   className="border p-2 w-full rounded mb-2"/>
+
+                            <label className="block font-medium">End Date:</label>
+                            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+                                   className="border p-2 w-full rounded mb-2"/>
+
+                            <div className="flex justify-end mt-4">
+                                <button className="bg-gray-400 text-white px-4 py-2 rounded-md mr-2"
+                                        onClick={() => setShowModal(false)}>Cancel
+                                </button>
+                                <button className="bg-green-600 text-white px-4 py-2 rounded-md" onClick={exportToMail}>
+                                    {loading ? <svg
+                                        className="w-5 h-5 animate-spin"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                    >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                              d="M4 4v6h6M20 20v-6h-6m1-10a9 9 0 11-6.64 15.36"/>
+                                    </svg> : "Export"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

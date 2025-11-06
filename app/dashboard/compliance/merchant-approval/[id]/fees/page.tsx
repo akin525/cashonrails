@@ -1,6 +1,5 @@
 "use client"
 
-
 import { useState, useEffect } from "react";
 import { FormSelect } from "@/components/formInputs/formInputs";
 // import Modal from "@/components/Modal";
@@ -17,6 +16,9 @@ const Page = ({ params }: { params: { id: string } }) => {
     // Fetch merchant's existing fees
     useEffect(() => {
         const fetchFees = async () => {
+            // Add guard clause to prevent API call when token is not available
+            if (!authState.token) return;
+
             setLoading(true);
             try {
                 const response = await axiosInstance.get(`/operations/merchant-fee/${params.id}`, {
@@ -32,7 +34,7 @@ const Page = ({ params }: { params: { id: string } }) => {
         };
 
         fetchFees();
-    }, []);
+    }, [authState.token, params.id]); // Added missing dependencies
 
     // Open modal for creating or editing fees
     const openModal = (fee = null) => {
@@ -123,10 +125,8 @@ const Page = ({ params }: { params: { id: string } }) => {
             {/*    </>*/}
             {/*)}*/}
 
-
         </div>
     );
-
 };
 
 export default Page;

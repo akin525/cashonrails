@@ -256,7 +256,9 @@ const Page = ({ params }: { params: { id: string } }) => {
     status: typedFilterState.status,
     start_date: filterState.dateRange.startDate,
     end_date: filterState.dateRange.endDate,
-  }), [filterState]);
+  }), [typedFilterState.status, filterState.dateRange.startDate, filterState.dateRange.endDate]);
+
+
   const handleRefresh = async () => {
     setLoading(true);
     await fetchData(currentPage, queryParams);

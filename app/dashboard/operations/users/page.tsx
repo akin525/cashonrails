@@ -40,8 +40,8 @@ const Page = () => {
     const [showSettleConfirmation, setShowSettleConfirmation] = useState<null | MerchantData>(null);
     const [activeFilter, setActiveFilter] = useState<string>('Total');
 
-    const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 1, limit: 50 });
-    const [pagination1, setPagination1] = useState({ totalItems: 0, totalPages: 1, limit: 100 });
+    const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 1, limit: 10 });
+    // const [pagination1, setPagination1] = useState({ totalItems: 0, totalPages: 1, limit: 10 });
     const [loading, setLoading] = useState<boolean>(true);
     const [data, setData] = useState<MerchantData[]>([]);
     const [data1, setData1] = useState<MerchantData[]>([]);
@@ -117,7 +117,7 @@ const Page = () => {
     const handleRefresh = async () => {
         setLoading(true);
         await fetchData(currentPage);
-        await fetchData1(currentPage);
+        // await fetchData1(currentPage);
         setLoading(false);
     };
     useEffect(() => {
@@ -169,27 +169,27 @@ const Page = () => {
             setLoading(false);
         }
     }, [authState.token, queryParams, pagination.limit]);
-    const fetchData1 = useCallback(async (page: number) => {
-        if (!authState.token) return;
-        setLoading(true);
-        try {
-            const response = await axiosInstance.get<MerchantData[]>("/finance/pendingpayout", {
-                params: { ...queryParams, page, limit: pagination1.limit },
-                headers: { Authorization: `Bearer ${authState.token}` },
-            });
-            setData1(response.data?.data ?? []);
-            setPagination1(response.data.pagination ? response.data.pagination : { totalItems: 0, totalPages: 1, limit: 20 });
-        } catch (error) {
-            console.error("Error fetching data:", error);
-        } finally {
-            setLoading(false);
-        }
-    }, [authState.token, queryParams, pagination.limit]);
+    // const fetchData1 = useCallback(async (page: number) => {
+    //     if (!authState.token) return;
+    //     setLoading(true);
+    //     try {
+    //         const response = await axiosInstance.get<MerchantData[]>("/finance/pendingpayout", {
+    //             params: { ...queryParams, page, limit: pagination1.limit },
+    //             headers: { Authorization: `Bearer ${authState.token}` },
+    //         });
+    //         setData1(response.data?.data ?? []);
+    //         setPagination1(response.data.pagination ? response.data.pagination : { totalItems: 0, totalPages: 1, limit: 20 });
+    //     } catch (error) {
+    //         console.error("Error fetching data:", error);
+    //     } finally {
+    //         setLoading(false);
+    //     }
+    // }, [authState.token, queryParams, pagination.limit]);
 
     useEffect(() => {
         fetchData(currentPage);
-        fetchData1(currentPage);
-    }, [fetchData, fetchData1, currentPage]);
+        // fetchData1(currentPage);
+    }, [fetchData, currentPage]);
 
     const [modalData, setModalData] = useState<MerchantData | null>(null)
 

@@ -44,9 +44,7 @@ interface CustomColumn<T> extends BaseColumn<T> {
     renderCustom?: (value: T) => React.ReactNode;
 }
 
-
-
-export type Column<T> = TextColumn<T> | LinkColumn<T> | CustomColumn<T> | DateColumn<T> | AmountColumn<T>  | DateTimeColumn<T>;
+export type Column<T> = TextColumn<T> | LinkColumn<T> | CustomColumn<T> | DateColumn<T> | AmountColumn<T> | DateTimeColumn<T>;
 
 interface BaseData {
     id: string;
@@ -64,18 +62,22 @@ interface SortState {
 }
 
 type TableProps<T> = {
-    headers: Column<T>[];
+    headers?: Column<T>[]; // Made optional since you're using 'columns'
+    columns?: Column<T>[]; // Add this to accept 'columns' prop
     data: T[];
     pagination?: {
         totalItems: number;
         limit: number;
         totalPages: number;
     };
+    currentPage?: number; // Add this since you're passing it
+    onPageChange?: (page: number) => void; // Changed from onPaginate to match your usage
     onPaginate?: (page: number) => void;
-    limit: number;
+    limit?: number; // Made optional
     onRowClick?: (row: T) => void;
     loading?: boolean | React.ReactNode;
     showPagination?: boolean;
+    rowClassName?: string; // Add this line
 };
 
 // Utility functions
@@ -91,7 +93,7 @@ const sortingUtils = {
 };
 
 // Components
-const TableHeader = memo<{ 
+const TableHeader = memo<{
     headers: Column<any>[],
     onSort?: (field: string) => void,
     sortState: SortState
@@ -115,28 +117,28 @@ const TableHeader = memo<{
 
     return (
         <thead>
-            <tr className="text-xs uppercase">
-                {headers.map((header, index) => (
-                    <th
-                        key={index}
-                        className={`py-2 px-4 text-left font-normal tracking-wide min-w-[120px]
+        <tr className="text-xs uppercase">
+            {headers.map((header, index) => (
+                <th
+                    key={index}
+                    className={`py-2 px-4 text-left font-normal tracking-wide min-w-[120px]
                             ${header.fixed === 'left' ? 'sticky left-0 z-20 bg-white' : ''}
                             ${header.fixed === 'right' ? 'sticky right-0 z-20 bg-white' : ''}
                             ${header.sortable ? 'cursor-pointer hover:bg-gray-50' : ''}`}
-                        style={{
-                            minWidth: header.minWidth,
-                            maxWidth: header.maxWidth,
-                            textAlign: header.align || 'left'
-                        }}
-                        onClick={() => header.sortable && onSort?.(header.id as string)}
-                    >
-                        <div className="flex items-center gap-1">
-                            {header.label}
-                            {header.sortable && renderSortIcon(header.id as string, header.sortType)}
-                        </div>
-                    </th>
-                ))}
-            </tr>
+                    style={{
+                        minWidth: header.minWidth,
+                        maxWidth: header.maxWidth,
+                        textAlign: header.align || 'left'
+                    }}
+                    onClick={() => header.sortable && onSort?.(header.id as string)}
+                >
+                    <div className="flex items-center gap-1">
+                        {header.label}
+                        {header.sortable && renderSortIcon(header.id as string, header.sortType)}
+                    </div>
+                </th>
+            ))}
+        </tr>
         </thead>
     );
 });
@@ -157,20 +159,20 @@ const TableCell = memo<{
             case "amount":
                 return <p>{StringUtils.formatWithCommas(value)}</p>;
             case "date":
-                return moment(value).isValid() ? 
+                return moment(value).isValid() ?
                     moment(value).format("MMM DD, YYYY") : "N/A";
-           case "dateTime":
-                return moment(value).isValid() 
-                    ? moment(value).format("MMM DD, YYYY, hh:mm A") 
+            case "dateTime":
+                return moment(value).isValid()
+                    ? moment(value).format("MMM DD, YYYY, hh:mm A")
                     : "N/A";
 
             case "text":
             default:
                 if (column.sortType === 'currency' && value) {
-                    return typeof value === 'number' ? 
-                        value.toLocaleString('en-US', { 
-                            style: 'currency', 
-                            currency: 'USD' 
+                    return typeof value === 'number' ?
+                        value.toLocaleString('en-US', {
+                            style: 'currency',
+                            currency: 'USD'
                         }) : value;
                 }
                 return column.format ? column.format(value) : value ?? "N/A";
@@ -203,48 +205,49 @@ const TableRow = memo<{
     const { theme } = useTheme();
 
     return (
-    <tr
-        className={`border-b border-gray-200 ${onRowClick ?`'cursor-pointer ${theme === "light" ? 'hover:bg-gray-50': 'hover:bg-gray-700'}  ` : ''}`}
-        onClick={() => onRowClick?.(row)}
-    >
-        {headers.map((column, index) => (
-            <TableCell
-                key={index}
-                column={column}
-                value={row[column.id]}
-                row={row}
-            />
-        ))}
-    </tr>
+        <tr
+            className={`border-b border-gray-200 ${onRowClick ?`'cursor-pointer ${theme === "light" ? 'hover:bg-gray-50': 'hover:bg-gray-700'}  ` : ''}`}
+            onClick={() => onRowClick?.(row)}
+        >
+            {headers.map((column, index) => (
+                <TableCell
+                    key={index}
+                    column={column}
+                    value={row[column.id]}
+                    row={row}
+                />
+            ))}
+        </tr>
     )}
 )
 
 TableRow.displayName = 'TableRow';
 
 const Table = <T extends Data>({
-    headers,
-    data,
-    pagination,
-    onPaginate,
-    limit,
-    onRowClick,
-    loading: controlledLoading,
-    showPagination = true
-}: TableProps<T>) => {
+                                   headers,
+                                   data,
+                                   pagination,
+                                   onPaginate,
+                                   limit,
+                                   onRowClick,
+                                   loading: controlledLoading,
+                                   showPagination = true
+                               }: TableProps<T>) => {
     const [currentPage, setCurrentPage] = useState(1);
     const [sortState, setSortState] = useState<SortState>({
         field: null,
         direction: null
     });
 
-    const compareValues = (aValue: any, bValue: any, header: BaseColumn<T>) => {
+    // Move compareValues inside useCallback to avoid dependency issues
+    const compareValues = useCallback((aValue: any, bValue: any, header: BaseColumn<T>) => {
         if (aValue === null || aValue === undefined) return 1;
         if (bValue === null || bValue === undefined) return -1;
 
         switch (header.sortType) {
             case 'currency':
                 return sortingUtils.currency(aValue) - sortingUtils.currency(bValue);
-                
+
             case 'number':
                 const aNum = typeof aValue === 'number' ? aValue : sortingUtils.extractNumber(String(aValue));
                 const bNum = typeof bValue === 'number' ? bValue : sortingUtils.extractNumber(String(bValue));
@@ -264,13 +267,13 @@ const Table = <T extends Data>({
                 if (typeof aValue === 'number' && typeof bValue === 'number') {
                     return aValue - bValue;
                 }
-                if (moment(aValue, moment.ISO_8601, true).isValid() && 
+                if (moment(aValue, moment.ISO_8601, true).isValid() &&
                     moment(bValue, moment.ISO_8601, true).isValid()) {
                     return moment(aValue).valueOf() - moment(bValue).valueOf();
                 }
                 return String(aValue).toLowerCase().localeCompare(String(bValue).toLowerCase());
         }
-    };
+    }, []); // Empty dependency array since it only uses utility functions
 
     const handleSort = useCallback((field: string) => {
         setSortState(prevState => ({
@@ -285,7 +288,6 @@ const Table = <T extends Data>({
                     : 'asc',
         }));
     }, []);
-
 
     const sortedData = useCallback(() => {
         if (!data || data.length === 0) return [];
@@ -304,7 +306,7 @@ const Table = <T extends Data>({
             const comparison = compareValues(aValue, bValue, currentHeader);
             return sortState.direction === 'asc' ? comparison : -comparison;
         });
-    }, [data, sortState, headers]);
+    }, [data, sortState, headers, compareValues]); // Added compareValues to dependencies
 
     useEffect(() => {
         onPaginate && onPaginate(currentPage);

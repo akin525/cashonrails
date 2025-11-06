@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import 'react-quill/dist/quill.snow.css';
 import Header from "./Header";
 import axiosInstance from "@/helpers/axiosInstance";
@@ -26,8 +26,8 @@ export default function EmailComposer() {
     const [selectedBizId, setSelectedBizId] = useState('');
     const [businesses, setBusinesses] = useState<Business[]>([]);
 
-    const fetchBusinesses = async () => {
-        if (merchantSearch.trim()) {
+    const fetchBusinesses = useCallback(async () => {
+        if (merchantSearch.trim() && authState.token) {
             setLoading(true);
             setError(null);
 
@@ -55,13 +55,13 @@ export default function EmailComposer() {
         } else {
             setBusinesses([]);
         }
-    };
+    }, [merchantSearch, authState.token]); // Added dependencies
 
     useEffect(() => {
         const debounceTime = 500;
         const timeoutId = setTimeout(fetchBusinesses, debounceTime);
         return () => clearTimeout(timeoutId);
-    }, [merchantSearch]);
+    }, [merchantSearch, fetchBusinesses]); // Added fetchBusinesses
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setMerchantSearch(e.target.value);

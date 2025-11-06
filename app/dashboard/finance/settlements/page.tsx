@@ -170,12 +170,14 @@ const SettlementsPage = () => {
     const [data, setData] = useState<TableData[] | undefined>(undefined);
     const [loading, setLoading] = useState<boolean>(true);
     const [currentPage, setCurrentPage] = useState<number>(1);
-    const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 1, limit: 20 });
+    const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 1, limit: 10 });
     const queryParams = useMemo(() => ({
         status: typedFilterState.status,
         start_date: filterState.dateRange.startDate,
         end_date: filterState.dateRange.endDate,
-    }), [filterState]);
+    }), [typedFilterState.status, filterState.dateRange.startDate, filterState.dateRange.endDate]);
+
+
     const [searchQuery, setSearchQuery] = useState<string>("");
 
 // Filter data based on search input

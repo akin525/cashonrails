@@ -1,5 +1,5 @@
 "use client"
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { FilterState, useUI } from '@/contexts/uiContext';
 import { useAuth } from '@/contexts/authContext';
 import { useRouter } from 'next/navigation';
@@ -13,9 +13,9 @@ import Modal from '@/components/modal';
 import Buttons from '@/components/buttons';
 import moment from 'moment';
 import { RouteLiteral } from 'nextjs-routes';
-import {FileSpreadsheet, PackageSearch} from "lucide-react";
-import {string} from "postcss-selector-parser";
+import { FileSpreadsheet, PackageSearch, Download } from "lucide-react";
 import toast from "react-hot-toast";
+import html2canvas from 'html2canvas';
 
 interface StatsData {
     total: number,
@@ -139,9 +139,9 @@ const MetricCards: React.FC<{
     stats: StatsData;
     isLoading: boolean
 }> = ({
-    stats,
-    isLoading
-}) => {
+          stats,
+          isLoading
+      }) => {
     // Helper function to format numbers to K, M, B
     const formatCurrency = (amount: number): string => {
         if (amount >= 1_000_000_000) {
@@ -180,19 +180,19 @@ const MetricCards: React.FC<{
     ];
 
     return (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mt-5 px-2.5">
-                {cardConfigs.map((card, index) => (
-                    <MetricCard
-                        key={index}
-                        count={card.count}
-                        title={card.title}
-                        isLoading={isLoading}
-                        variant="success"
-                    />
-                ))}
-            </div>
-        );
-    };
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mt-5 px-2.5">
+            {cardConfigs.map((card, index) => (
+                <MetricCard
+                    key={index}
+                    count={card.count}
+                    title={card.title}
+                    isLoading={isLoading}
+                    variant="success"
+                />
+            ))}
+        </div>
+    );
+};
 
 // Page Component
 const Page = () => {
@@ -204,15 +204,50 @@ const Page = () => {
     const [data1, setData1] = useState<CombinedResponse | undefined>(undefined);
     const [loading, setLoading] = useState<boolean>(true);
     const [currentPage, setCurrentPage] = useState<number>(1);
-    const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 1, limit: 50 });
-    const [pagination1, setPagination1] = useState({ totalItems: 0, totalPages: 1, limit: 100 });
-    const [selectedPayout, setSelectedPayout] = useState<TableData | null>(null); // NEW STATE
+    const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 1, limit: 10 });
+    const [selectedPayout, setSelectedPayout] = useState<TableData | null>(null);
     const [searchQuery, setSearchQuery] = useState<string>("");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [showModal, setShowModal] = useState(false);
+    const [showGatewayResponse, setShowGatewayResponse] = useState(false);
 
-// Filter data based on search input
+    // Add ref for screenshot
+    const payoutReceiptRef = useRef<HTMLDivElement>(null);
+
+    // Screenshot function
+    const handleScreenshot = async () => {
+        if (!payoutReceiptRef.current || !selectedPayout) return;
+
+        try {
+            const canvas = await html2canvas(payoutReceiptRef.current, {
+                backgroundColor: '#ffffff',
+                scale: 2, // Higher quality
+                logging: false,
+                useCORS: true,
+            });
+
+            // Convert to blob and download
+            canvas.toBlob((blob) => {
+                if (blob) {
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `payout-$${selectedPayout.trx}-$$ {Date.now()}.png`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    toast.success('Payout proof downloaded successfully!');
+                }
+            });
+        } catch (error) {
+            console.error('Error capturing screenshot:', error);
+            toast.error('Failed to capture screenshot');
+        }
+    };
+
+    // Filter data based on search input
     const filteredData = useMemo(() => {
         if (!data?.payouts) return [];
         return data.payouts.filter((item) =>
@@ -225,12 +260,12 @@ const Page = () => {
     const downloadCSV = () => {
         if (!data1?.payouts.length) return;
 
-        const headers = TABLE_COLUMNS1.map(col => col.label).join(","); // Column headers
+        const headers = TABLE_COLUMNS1.map(col => col.label).join(",");
         const rows = data1.payouts.map(item =>
             TABLE_COLUMNS1.map(col => item[col.id as keyof TableData] || "").join(",")
-        ).join("\n"); // Data rows
+        ).join("\n");
 
-        const csvContent = `data:text/csv;charset=utf-8,${headers}\n${rows}`;
+        const csvContent = `data:text/csv;charset=utf-8,$${headers}\n$$ {rows}`;
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
@@ -239,19 +274,19 @@ const Page = () => {
         link.click();
         document.body.removeChild(link);
     };
+
     const handleRefresh = async () => {
         setLoading(true);
         await fetchData(currentPage);
-        await fetchData1(currentPage);
         setLoading(false);
     };
+
     const queryParams = useMemo(() => ({
         status: typedFilterState.status,
         start_date: filterState.dateRange.startDate,
         end_date: filterState.dateRange.endDate,
     }), [filterState.dateRange.endDate, filterState.dateRange.startDate, typedFilterState.status]);
 
-    console.log("queryParams", queryParams)
     const fetchData = useCallback(async (page: number) => {
         if (!authState.token) return;
         setLoading(true);
@@ -259,8 +294,7 @@ const Page = () => {
             const response = await axiosInstance.get<CombinedResponse>("/finance/payouts", {
                 params: { ...queryParams, page, limit: pagination.limit },
                 headers: { Authorization: `Bearer ${authState.token}` },
-                timeout:60000
-
+                timeout: 60000
             });
             setData(response.data?.data);
             setPagination(response.data.pagination ? response.data.pagination : { totalItems: 0, totalPages: 1, limit: 20 });
@@ -270,28 +304,10 @@ const Page = () => {
             setLoading(false);
         }
     }, [authState.token, queryParams, pagination.limit]);
-    const fetchData1 = useCallback(async (page: number) => {
-        if (!authState.token) return;
-        setLoading(true);
-        try {
-            const response = await axiosInstance.get<CombinedResponse>("/finance/payouts", {
-                params: { ...queryParams, page, limit: pagination1.limit },
-                headers: { Authorization: `Bearer ${authState.token}` },
-                timeout:60000
-            });
-            setData1(response.data?.data);
-            setPagination1(response.data.pagination ? response.data.pagination : { totalItems: 0, totalPages: 1, limit: 20 });
-        } catch (error) {
-            console.error("Error fetching data:", error);
-        } finally {
-            setLoading(false);
-        }
-    }, [authState.token, queryParams, pagination.limit]);
 
     useEffect(() => {
         fetchData(currentPage);
-        fetchData1(currentPage);
-    }, [fetchData, fetchData1, currentPage]);
+    }, [fetchData, currentPage]);
 
     useEffect(() => {
         setShowSearchQuery(true);
@@ -300,59 +316,33 @@ const Page = () => {
         };
     }, [setShowSearchQuery, typedFilterState]);
 
-
     const resendwebhook = async (businessId?: string, transactionId?: string) => {
         if (!businessId || !transactionId) {
             console.error("Missing businessId or transactionId");
             return;
         }
 
-
         try {
             setLoading(true);
             const response = await axiosInstance.get<Response>(
-                `/resend_payout_webhook/${businessId}/live/${transactionId}`,
+                `/resend_payout_webhook/$${businessId}/live/$$ {transactionId}`,
                 {
                     headers: { Authorization: `Bearer ${authState.token}` },
-                    timeout:60000
-
+                    timeout: 60000
                 }
             );
-            if (response.data.success){
+            if (response.data.success) {
                 toast.success(response.data.message);
-            }else {
+            } else {
                 toast.error(response.data.message);
             }
-
         } catch (error) {
             console.error("Error fetching data:", error);
         } finally {
             setLoading(false);
         }
-    }; // Fix dependency array
-    const exporttomail = async () => {
-        setLoading(true);
-
-        try {
-            const response = await axiosInstance.get('/export/export-payouts', {
-                headers: { Authorization: `Bearer ${authState.token}` },
-            });
-            setLoading(false);
-
-            if (response.data.status) {
-
-                toast.success(response.data.message);
-            }else {
-                toast.error(response.data.message);
-
-            }
-        } catch (error: any) {
-            setLoading(false);
-            console.error("Error fetching fees:", error);
-            toast.error(error.message);
-
-        }
     };
+
     const exportToMail = async () => {
         setLoading(true);
 
@@ -364,13 +354,12 @@ const Page = () => {
                 },
                 {
                     headers: { Authorization: `Bearer ${authState.token}` },
-                    timeout:60000
-
+                    timeout: 60000
                 }
             );
 
             setLoading(false);
-            setShowModal(false); // Close modal
+            setShowModal(false);
 
             if (response.data.status) {
                 toast.success(response.data.message);
@@ -395,159 +384,270 @@ const Page = () => {
                 onClose={() => setSelectedPayout(null)}
                 header={
                     <div className="space-y-4">
-                        <h2 className="text-xl font-semibold text-gray-800">Payout Details</h2>
-                        <div className="flex gap-4">
-                            <Buttons onClick={()=> router.push(`/dashboard/operations/merchant/${selectedPayout?.business_id}/business` as RouteLiteral)} label="Go to business" fullWidth type="smOutlineButton" />
+                        <h2 className="text-xl font-semibold text-gray-500">Payout Details</h2>
+                        <div className="flex gap-4 flex-wrap">
+                            <Buttons
+                                onClick={() => router.push(`/dashboard/operations/merchant/${selectedPayout?.business_id}/business` as RouteLiteral)}
+                                label="Go to business"
+                                type="smOutlineButton"
+                            />
                             <Buttons
                                 onClick={() => resendwebhook(selectedPayout?.business_id as any, selectedPayout?.id)}
                                 label={loading ? "Sending..." : "Resend Notification"}
-                                fullWidth
                                 type="smOutlineButton"
                                 disabled={loading}
                             />
+                            {/* New Screenshot Button */}
+                            <button
+                                onClick={handleScreenshot}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition shadow-md"
+                            >
+                                <Download className="w-4 h-4" />
+                                Download Proof
+                            </button>
                         </div>
                     </div>
                 }
                 scrollableContent={true}
             >
-                {selectedPayout ? (
-                    <div className="space-y-4 p-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Existing Fields */}
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Transaction ID:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.trx}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Business ID:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.business_id}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Amount:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.currency} {selectedPayout.amount}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Fee:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.fee}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Account Number:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.account_number}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Account Name:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.account_name}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Sender Name:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.sender_name}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Status:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{StringUtils.capitalizeWords(selectedPayout.status)}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Date:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">
-                                    {moment(selectedPayout.created_at).format('MMMM Do YYYY')}
-                                    <br />
-                                    {moment(selectedPayout.created_at).format('h:mm:ss a')}
+                {/* Wrap content in ref for screenshot */}
+                <div ref={payoutReceiptRef} className="bg-white">
+                    {selectedPayout ? (
+                        <div className="space-y-4 p-6">
+                            {/* Header for Receipt */}
+                            <div className="text-center border-b pb-4">
+                                <h1 className="text-2xl font-bold text-gray-800">Payout Receipt</h1>
+                                <p className="text-sm text-gray-500 mt-1">
+                                    Generated on {new Date().toLocaleString()}
                                 </p>
                             </div>
 
-                            {/* Additional Fields */}
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Reference:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.reference}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Transaction Ref:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.transactionRef || 'N/A'}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Session ID:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.sessionid || 'N/A'}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Batch ID:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.batch_id || 'N/A'}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Fee Source:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.fee_source}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>System Fee:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.sys_fee}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Bank Code:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.bank_code}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Bank Name:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.bank_name}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Narration:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.narration}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Payment Mode:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.paymentMode}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Request IP:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.request_ip}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Initiator:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.initiator}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Domain:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.domain}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Source:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.source}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Gateway:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.gateway}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Gateway Response:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.gateway_response || 'N/A'}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Message:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.message || 'N/A'}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Reversed:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.reversed}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Reversed By:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.reversed_by || 'N/A'}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Note:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{selectedPayout.note || 'N/A'}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Updated At:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">
-                                    {moment(selectedPayout.updated_at).format('MMMM Do YYYY')}
-                                    <br />
-                                    {moment(selectedPayout.updated_at).format('h:mm:ss a')}
+                            {/* Status Banner */}
+                            <div className={`p-4 rounded-lg text-center ${
+                                selectedPayout.status === 'success' ? 'bg-green-100 border border-green-300' :
+                                    selectedPayout.status === 'pending' ? 'bg-yellow-100 border border-yellow-300' :
+                                        'bg-red-100 border border-red-300'
+                            }`}>
+                                <p className="text-lg font-semibold capitalize">
+                                    Status: {selectedPayout.status}
                                 </p>
                             </div>
+
+                            {/* Main Payout Information */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Transaction ID */}
+                                <div className="space-y-2 p-3 bg-gray-50 rounded">
+                                    <p className="text-xs text-gray-500 uppercase">Transaction ID</p>
+                                    <p className="text-sm font-semibold text-gray-800">{selectedPayout.trx}</p>
+                                </div>
+
+                                {/* Reference */}
+                                <div className="space-y-2 p-3 bg-gray-50 rounded">
+                                    <p className="text-xs text-gray-500 uppercase">Reference</p>
+                                    <p className="text-sm font-semibold text-gray-800">{selectedPayout.reference}</p>
+                                </div>
+
+                                {/* Business ID */}
+                                <div className="space-y-2 p-3 bg-gray-50 rounded">
+                                    <p className="text-xs text-gray-500 uppercase">Business ID</p>
+                                    <p className="text-sm font-semibold text-gray-800">{selectedPayout.business_id}</p>
+                                </div>
+
+                                {/* Amount - Highlighted */}
+                                <div className="space-y-2 p-3 bg-green-50 rounded border border-green-200">
+                                    <p className="text-xs text-gray-500 uppercase">Amount</p>
+                                    <p className="text-lg font-bold text-green-700">
+                                        {selectedPayout.currency} {Number(selectedPayout.amount).toLocaleString()}
+                                    </p>
+                                </div>
+
+                                {/* Fee */}
+                                {/*<div className="space-y-2 p-3 bg-gray-50 rounded">*/}
+                                {/*    <p className="text-xs text-gray-500 uppercase">Fee</p>*/}
+                                {/*    <p className="text-sm font-semibold text-gray-800">{selectedPayout.fee}</p>*/}
+                                {/*</div>*/}
+
+                                {/* System Fee */}
+                                {/*<div className="space-y-2 p-3 bg-gray-50 rounded">*/}
+                                {/*    <p className="text-xs text-gray-500 uppercase">System Fee</p>*/}
+                                {/*    <p className="text-sm font-semibold text-gray-800">{selectedPayout.sys_fee}</p>*/}
+                                {/*</div>*/}
+
+                                {/* Gateway */}
+                                <div className="space-y-2 p-3 bg-gray-50 rounded">
+                                    <p className="text-xs text-gray-500 uppercase">Gateway</p>
+                                    <p className="text-sm font-semibold text-gray-800 capitalize">{selectedPayout.gateway}</p>
+                                </div>
+
+                                {/* Payment Mode */}
+                                <div className="space-y-2 p-3 bg-gray-50 rounded">
+                                    <p className="text-xs text-gray-500 uppercase">Payment Mode</p>
+                                    <p className="text-sm font-semibold text-gray-800">{StringUtils.snakeToCapitalized(selectedPayout.paymentMode)}</p>
+                                </div>
+                            </div>
+
+                            {/* Bank Details Section */}
+                            <div className="mt-6 border-t pt-4">
+                                <h3 className="text-lg font-semibold text-gray-800 mb-3">Bank Details</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2 p-3 bg-blue-50 rounded border border-blue-200">
+                                        <p className="text-xs text-gray-500 uppercase">Account Number</p>
+                                        <p className="text-sm font-bold text-blue-800">{selectedPayout.account_number}</p>
+                                    </div>
+                                    <div className="space-y-2 p-3 bg-blue-50 rounded border border-blue-200">
+                                        <p className="text-xs text-gray-500 uppercase">Account Name</p>
+                                        <p className="text-sm font-bold text-blue-800">{selectedPayout.account_name}</p>
+                                    </div>
+                                    <div className="space-y-2 p-3 bg-gray-50 rounded">
+                                        <p className="text-xs text-gray-500 uppercase">Bank Name</p>
+                                        <p className="text-sm font-semibold text-gray-800">{selectedPayout.bank_name}</p>
+                                    </div>
+                                    <div className="space-y-2 p-3 bg-gray-50 rounded">
+                                        <p className="text-xs text-gray-500 uppercase">Bank Code</p>
+                                        <p className="text-sm font-semibold text-gray-800">{selectedPayout.bank_code}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Sender & Narration */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2 p-3 bg-gray-50 rounded">
+                                    <p className="text-xs text-gray-500 uppercase">Sender Name</p>
+                                    <p className="text-sm font-semibold text-gray-800">{selectedPayout.sender_name}</p>
+                                </div>
+                                <div className="space-y-2 p-3 bg-gray-50 rounded">
+                                    <p className="text-xs text-gray-500 uppercase">Narration</p>
+                                    <p className="text-sm font-semibold text-gray-800">{selectedPayout.narration}</p>
+                                </div>
+                            </div>
+
+                            {/* Date Information */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2 p-3 bg-gray-50 rounded">
+                                    <p className="text-xs text-gray-500 uppercase">Created Date</p>
+                                    <p className="text-sm font-semibold text-gray-800">
+                                        {moment(selectedPayout.created_at).format('MMMM Do YYYY, h:mm:ss a')}
+                                    </p>
+                                </div>
+                                <div className="space-y-2 p-3 bg-gray-50 rounded">
+                                    <p className="text-xs text-gray-500 uppercase">Last Updated</p>
+                                    <p className="text-sm font-semibold text-gray-800">
+                                        {moment(selectedPayout.updated_at).format('MMMM Do YYYY, h:mm:ss a')}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Additional Details - Collapsible */}
+                            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                                <details className="cursor-pointer">
+                                    <summary className="text-sm font-semibold text-gray-700 hover:text-gray-900">
+                                        View Additional Details
+                                    </summary>
+                                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        {selectedPayout.transactionRef && (
+                                            <div className="space-y-1">
+                                                <p className="text-xs text-gray-500">Transaction Ref:</p>
+                                                <p className="text-sm text-gray-800">{selectedPayout.transactionRef}</p>
+                                            </div>
+                                        )}
+                                        {selectedPayout.sessionid && (
+                                            <div className="space-y-1">
+                                                <p className="text-xs text-gray-500">Session ID:</p>
+                                                <p className="text-sm text-gray-800">{selectedPayout.sessionid}</p>
+                                            </div>
+                                        )}
+                                        {selectedPayout.batch_id && (
+                                            <div className="space-y-1">
+                                                <p className="text-xs text-gray-500">Batch ID:</p>
+                                                <p className="text-sm text-gray-800">{selectedPayout.batch_id}</p>
+                                            </div>
+                                        )}
+                                        <div className="space-y-1">
+                                            <p className="text-xs text-gray-500">Fee Source:</p>
+                                            <p className="text-sm text-gray-800">{selectedPayout.fee_source}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-xs text-gray-500">Source:</p>
+                                            <p className="text-sm text-gray-800 capitalize">{selectedPayout.source}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-xs text-gray-500">Domain:</p>
+                                            <p className="text-sm text-gray-800">{selectedPayout.domain}</p>
+                                        </div>
+                                        {selectedPayout.initiator && (
+                                            <div className="space-y-1">
+                                                <p className="text-xs text-gray-500">Initiator:</p>
+                                                <p className="text-sm text-gray-800">{selectedPayout.initiator}</p>
+                                            </div>
+                                        )}
+                                        <div className="space-y-1">
+                                            <p className="text-xs text-gray-500">Request IP:</p>
+                                            <p className="text-sm text-gray-800">{selectedPayout.request_ip}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-xs text-gray-500">Reversed:</p>
+                                            <p className="text-sm text-gray-800">{selectedPayout.reversed}</p>
+                                        </div>
+                                        {selectedPayout.reversed_by && (
+                                            <div className="space-y-1">
+                                                <p className="text-xs text-gray-500">Reversed By:</p>
+                                                <p className="text-sm text-gray-800">{selectedPayout.reversed_by}</p>
+                                            </div>
+                                        )}
+                                        {selectedPayout.note && (
+                                            <div className="space-y-1 col-span-2">
+                                                <p className="text-xs text-gray-500">Note:</p>
+                                                <p className="text-sm text-gray-800">{selectedPayout.note}</p>
+                                            </div>
+                                        )}
+                                        {selectedPayout.message && (
+                                            <div className="space-y-1 col-span-2">
+                                                <p className="text-xs text-gray-500">Message:</p>
+                                                <p className="text-sm text-gray-800">{selectedPayout.message}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </details>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="text-center text-xs text-gray-400 mt-6 pt-4 border-t">
+                                <p>This is a computer-generated receipt and requires no signature.</p>
+                            </div>
                         </div>
+                    ) : (
+                        <p className="text-center text-gray-600 py-4">Loading payout details...</p>
+                    )}
+                </div>
+
+                {/* Gateway Response - Outside screenshot area */}
+                {selectedPayout && selectedPayout.gateway_response && (
+                    <div className="mt-6 px-6 pb-6">
+                        <button
+                            onClick={() => setShowGatewayResponse(!showGatewayResponse)}
+                            className="flex items-center justify-between w-full p-3 bg-gray-100 rounded-lg hover:bg-gray-200 focus:outline-none"
+                        >
+                            <span className="text-sm font-medium text-gray-700">
+                                {showGatewayResponse ? 'Hide Gateway Response' : 'Show Gateway Response'}
+                            </span>
+                            <svg
+                                className={`w-5 h-5 transition-transform ${showGatewayResponse ? 'transform rotate-180' : ''}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+
+                        {showGatewayResponse && (
+                            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                                <pre className="text-sm text-gray-800 overflow-auto">
+                                    {JSON.stringify(JSON.parse(selectedPayout.gateway_response), null, 2)}
+                                </pre>
+                            </div>
+                        )}
                     </div>
-                ) : (
-                    <p className="text-center text-gray-600 py-4">Loading payout details...</p>
                 )}
             </Modal>
 
@@ -567,7 +667,8 @@ const Page = () => {
                         <button
                             onClick={handleRefresh}
                             disabled={loading}
-                            className="bg-green-500 text-white px-4 py-2 text-sm font-medium rounded-lg hover:bg-green-600 transition flex items-center gap-2 shadow-md"
+                            className="
+bg-green-500 text-white px-4 py-2 text-sm font-medium rounded-lg hover:bg-green-600 transition flex items-center gap-2 shadow-md"
                         >
                             {loading ? (
                                 <svg
@@ -607,6 +708,7 @@ const Page = () => {
                                 </>
                             )}
                         </button>
+
                         {/* Open Export Modal */}
                         <button
                             onClick={() => setShowModal(true)}
@@ -615,6 +717,7 @@ const Page = () => {
                             <FileSpreadsheet className="w-5 h-5"/>
                             <span>Export All to CSV</span>
                         </button>
+
                         <button
                             onClick={() => router.push(`/dashboard/finance/search-payout` as RouteLiteral)}
                             className="bg-green-600 text-white px-4 py-2 text-sm font-medium rounded-lg hover:bg-green-700 transition flex items-center gap-2 shadow-md"
@@ -632,38 +735,57 @@ const Page = () => {
                     loading={loading}
                     onPaginate={setCurrentPage}
                     pagination={pagination}
-                    onRowClick={(row) => setSelectedPayout(row)} // Handle row click
+                    onRowClick={(row) => setSelectedPayout(row)}
                 />
 
                 {/* Export Modal */}
                 {showModal && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
                         <div className="bg-white p-6 rounded-lg shadow-lg w-96">
                             <h2 className="text-lg font-semibold mb-4">Export Payouts</h2>
 
                             <label className="block font-medium">Start Date:</label>
-                            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-                                   className="border p-2 w-full rounded mb-2"/>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                className="border p-2 w-full rounded mb-2"
+                            />
 
                             <label className="block font-medium">End Date:</label>
-                            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
-                                   className="border p-2 w-full rounded mb-2"/>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                className="border p-2 w-full rounded mb-2"
+                            />
 
                             <div className="flex justify-end mt-4">
-                                <button className="bg-gray-400 text-white px-4 py-2 rounded-md mr-2"
-                                        onClick={() => setShowModal(false)}>Cancel
+                                <button
+                                    className="bg-gray-400 text-white px-4 py-2 rounded-md mr-2"
+                                    onClick={() => setShowModal(false)}
+                                >
+                                    Cancel
                                 </button>
-                                <button className="bg-green-600 text-white px-4 py-2 rounded-md" onClick={exportToMail}>
-                                    {loading ? <svg
-                                        className="w-5 h-5 animate-spin"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                    >
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                              d="M4 4v6h6M20 20v-6h-6m1-10a9 9 0 11-6.64 15.36"/>
-                                    </svg> : "Export"}
+                                <button
+                                    className="bg-green-600 text-white px-4 py-2 rounded-md"
+                                    onClick={exportToMail}
+                                    disabled={loading}
+                                >
+                                    {loading ? (
+                                        <svg
+                                            className="w-5 h-5 animate-spin"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                            xmlns="http://www.w3.org/2000/svg"
+                                        >
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                                  d="M4 4v6h6M20 20v-6h-6m1-10a9 9 0 11-6.64 15.36"/>
+                                        </svg>
+                                    ) : (
+                                        "Export"
+                                    )}
                                 </button>
                             </div>
                         </div>

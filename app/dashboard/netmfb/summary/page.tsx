@@ -5,19 +5,20 @@ import axiosInstance from "@/helpers/axiosInstance";
 import { useUI } from "@/contexts/uiContext";
 import Header from "./Header";
 
+// Move this outside the component
+const defaultBanks = [
+    { title: "Account Number", key: "accountNumber" },
+    { title: "Ledger Balance", key: "ledgerBalance" },
+    { title: "Available Balance", key: "availableBalance" },
+    { title: "Withdrawable Balance", key: "withdrawableBalance" },
+    { title: "Lien Amount", key: "lienAmount" },
+];
+
 const NetmfbSummary: React.FC = () => {
     const { authState } = useAuth();
     const { setShowSearchQuery } = useUI();
     const [cards, setCards] = useState<{ count: string; title: string }[]>([]);
     const [loadingCards, setLoadingCards] = useState<boolean>(false);
-
-    const defaultBanks = [
-        { title: "Account Number", key: "accountNumber" },
-        { title: "Ledger Balance", key: "ledgerBalance" },
-        { title: "Available Balance", key: "availableBalance" },
-        { title: "Withdrawable Balance", key: "withdrawableBalance" },
-        { title: "Lien Amount", key: "lienAmount" },
-    ];
 
     const fetchStats = useCallback(async () => {
         if (!authState.token) return;
@@ -45,7 +46,7 @@ const NetmfbSummary: React.FC = () => {
         } finally {
             setLoadingCards(false);
         }
-    }, [authState.token]);
+    }, [authState.token]); // Now defaultBanks doesn't need to be in dependencies
 
     useEffect(() => {
         const delayFetch = setTimeout(() => {

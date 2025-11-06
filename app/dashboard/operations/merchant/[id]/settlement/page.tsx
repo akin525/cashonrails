@@ -116,7 +116,9 @@ const SettlementsPage = ({ params }: { params: { id: string } }) => {
     status: typedFilterState.status,
     start_date: filterState.dateRange.startDate,
     end_date: filterState.dateRange.endDate,
-  }), [filterState]);
+  }), [typedFilterState.status, filterState.dateRange.startDate, filterState.dateRange.endDate]);
+
+
   const [searchQuery, setSearchQuery] = useState<string>("");
 
 // Filter data based on search input
@@ -125,6 +127,8 @@ const SettlementsPage = ({ params }: { params: { id: string } }) => {
     await fetchData(currentPage, searchQuery);
     setLoading(false);
   };
+
+  // ✅ Added params.id to the dependency array
   const fetchData = useCallback(async (page: number, search: string) => {
     if (!authState.token) return;
     setLoading(true);
@@ -142,7 +146,8 @@ const SettlementsPage = ({ params }: { params: { id: string } }) => {
     } finally {
       setLoading(false);
     }
-  }, [authState.token, queryParams, pagination.limit]);
+  }, [authState.token, queryParams, pagination.limit, params.id]); // ✅ Added params.id here
+
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       fetchData(currentPage, searchQuery);
@@ -197,26 +202,26 @@ const SettlementsPage = ({ params }: { params: { id: string } }) => {
         </Modal>
 
         <div className="p-4 mt-4">
-            <button
-                onClick={handleRefresh}
-                disabled={loading}
-                className="bg-green-500 text-white px-3 py-1 text-sm rounded-md hover:bg-green-600 transition flex items-center gap-2 m-2"
-            >
-              {loading ? (
-                  <svg
-                      className="w-4 h-4 animate-spin"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                          d="M4 4v6h6M20 20v-6h-6m1-10a9 9 0 11-6.64 15.36"/>
-                  </svg>
-              ) : (
-                  "Refresh"
-              )}
-            </button>
+          <button
+              onClick={handleRefresh}
+              disabled={loading}
+              className="bg-green-500 text-white px-3 py-1 text-sm rounded-md hover:bg-green-600 transition flex items-center gap-2 m-2"
+          >
+            {loading ? (
+                <svg
+                    className="w-4 h-4 animate-spin"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M4 4v6h6M20 20v-6h-6m1-10a9 9 0 11-6.64 15.36"/>
+                </svg>
+            ) : (
+                "Refresh"
+            )}
+          </button>
 
           <Table<TableData>
               headers={TABLE_COLUMNS as any }

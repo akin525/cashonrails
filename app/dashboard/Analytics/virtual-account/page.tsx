@@ -17,7 +17,8 @@ const VirtualAccountStats: React.FC = () => {
         end_date: filterState.dateRange.endDate,
     }), [filterState.dateRange]);
 
-    const defaultBanks = [
+    // Move defaultBanks to useMemo to make it stable across renders
+    const defaultBanks = useMemo(() => [
         { title: "VFD", key: "vfd", count: "0" },
         { title: "GTB", key: "gtb", count: "0" },
         { title: "PROVIDUS", key: "providus", count: "0" },
@@ -25,7 +26,7 @@ const VirtualAccountStats: React.FC = () => {
         { title: "NETBANK", key: "netbank", count: "0" },
         { title: "WEMA", key: "wema", count: "0" },
         { title: "BANK78", key: "bank78", count: "0" }
-    ];
+    ], []);
 
     const fetchStats = useCallback(async () => {
         if (!authState.token) return;
@@ -52,7 +53,7 @@ const VirtualAccountStats: React.FC = () => {
         } finally {
             setLoadingCards(false);
         }
-    }, [authState.token, queryParams]);
+    }, [authState.token, queryParams, defaultBanks]); // Added defaultBanks to dependency array
 
     useEffect(() => {
         fetchStats();

@@ -37,7 +37,6 @@ export interface TableData {
     risk_score: string;
 }
 
-
 export interface MerchantData {
     stats: StatsData;
     table: TableData[];
@@ -64,7 +63,7 @@ const MerchantsPage: React.FC = () => {
     const [loading, setLoading] = useState<boolean>(true);
     const [currentPage, setCurrentPage] = useState<number>(1);
     const [totalPages, setTotalPages] = useState<number>(1);
-    const limit = 12;
+    const limit = 10;
 
     const queryParams = useMemo(
         () => ({
@@ -107,7 +106,7 @@ const MerchantsPage: React.FC = () => {
         setShowHeader(false);
         setShowSearchQuery(true);
         return () => setShowHeader(false);
-    }, []);
+    }, [setShowHeader, setShowSearchQuery]); // Added missing dependencies
 
     const MetricCards = () =>
         stats && (
