@@ -4,35 +4,59 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/authContext';
 import { FilterState, useUI } from '@/contexts/uiContext';
 import DateRangeSelector from '@/components/filter/DateRangePicker';
-import { ChevronIcon } from '@/assets/icons';
 import moment from 'moment';
 import Header from './Header';
 import { CardSkeleton } from '@/components/loaders';
 import axiosInstance from '@/helpers/axiosInstance';
-import { useFetchHook } from '@/helpers/globalRequests';
 import React from 'react';
-import AreaChart from '@/components/charts/AreaChart';
-import LineChart from '@/components/charts/AreaChart';
-import ZoomableLineChart from '@/components/charts/LineChart';
 import toast from 'react-hot-toast';
-import { MetricCard, MetricCardProps } from '@/components/MatricCard';
+import { MetricCard } from '@/components/MatricCard';
 import { Chip } from '@/components/chip';
 import Table, { Column } from '@/components/table';
 import { StringUtils } from '@/helpers/extras';
 import Modal from '@/components/modal';
 import Buttons from '@/components/buttons';
-import router from 'next/navigation';
 import { RouteLiteral } from 'nextjs-routes';
-import {string} from "postcss-selector-parser";
-import {FiRefreshCcw} from "react-icons/fi";
+import {
+    FiRefreshCcw,
+    FiTrendingUp,
+    FiTrendingDown,
+    FiDollarSign,
+    FiUsers,
+    FiCreditCard,
+    FiSmartphone,
+    FiActivity,
+    FiFilter,
+    FiCalendar,
+    FiDownload,
+    FiEye,
+    FiEyeOff,
+    FiChevronDown,
+    FiChevronUp,
+    FiExternalLink,
+    FiSend,
+    FiAlertCircle,
+} from 'react-icons/fi';
+import {
+    Building2,
+    Wallet,
+    ArrowUpRight,
+    ArrowDownRight,
+    Loader2,
+    CheckCircle2,
+    XCircle,
+    Clock,
+    AlertCircle,
+    Layers,
+} from 'lucide-react';
 
-// Interfaces for API responses
+// [Keep all your existing interfaces - OverviewStatsData, ChartData, etc.]
 interface OverviewStatsData {
     sumTransaction: number,
     totalTransactions: number,
     totalMerchants: number,
-    totalActiveBusiness:number,
-    transationSystemFee:number,
+    totalActiveBusiness: number,
+    transationSystemFee: number,
     collectionRevenue: number,
     payoutSystemFee: number,
     transationFee: number,
@@ -45,7 +69,7 @@ interface OverviewStatsData {
     totalCheckout: number,
     totalCheckoutCount: number,
     totalCheckoutFee: number,
-    totalMerchant:number,
+    totalMerchant: number,
     totalBusiness: number,
     payoutRevenue: number,
     transationRevenue: number,
@@ -66,61 +90,10 @@ interface OverviewStatsData {
     totalActiveMerchants: number
 }
 
-interface ChartData {
-    date: string;
-    count: number;
-}
-
 interface Response {
     table: TableData[];
-};
-interface GatewayResponseData {
-    amount: number;
-    description: string;
-    paymentMethodId: number;
-    sessionId: string | null;
-    merchantName: string | null;
-    settlementId: string;
-    customer: {
-        id: string;
-        transactionId: string;
-        createdAt: string;
-        email: string;
-        phone: string;
-        firstName: string;
-        lastName: string;
-        metadata: string;
-    };
-    isEPosTransaction: boolean;
-    userId: string | null;
-    ePosTransactionReference: string | null;
-    cardScheme: string;
-    ePosTransactionStan: string | null;
-    eposTransactionRrn: string | null;
-    terminalId: string | null;
-    cardPan: string | null;
-    cardExpiryDate: string | null;
-    cardHolderName: string | null;
-    applicationPanSequenceNumber: string | null;
-    id: string;
-    merchantId: string;
-    businessId: string;
-    channel: string;
-    callbackUrl: string;
-    feeAmount: number;
-    businessName: string;
-    currency: string;
-    status: string;
-    statusReason: string | null;
-    settlementType: string;
-    createdAt: string;
-    updatedAt: string;
-    settledAt: string;
-    orderId: string;
-    ngnVirtualBankAccountNumber: string;
-    ngnVirtualBankCode: string | null;
-    usdVirtualAccountNumber: string;
-    usdVirtualBankCode: string | null;
+    pagination?: any;
+    data?: any;
 }
 
 interface BusinessSummary {
@@ -190,6 +163,7 @@ interface Business {
     updated_at: string;
     summary: BusinessSummary;
 }
+
 interface TableData {
     id: string;
     business_id: number;
@@ -213,7 +187,7 @@ interface TableData {
     split_code: string | null;
     ip_address: string;
     gateway: string;
-    gateway_response: string; // JSON string
+    gateway_response: string;
     webhook_status: string | null;
     webhook_response: string | null;
     webhook_count: number;
@@ -222,15 +196,13 @@ interface TableData {
     created_at: string;
     updated_at: string;
     business: Business;
-};
+}
 
 const COLUMNS: Column<TableData>[] = [
+    { id: "reference", label: "TRANSACTION ID" },
     {
-        id: "reference", label: "TRANSACTION ID",
-    },
-    // { id: "merchant", label: "MERCHANT NAME" },
-    {
-        id: "business", label: "BUSINESS NAME",
+        id: "business",
+        label: "BUSINESS NAME",
         type: "custom",
         renderCustom: (value) => <p>{value.business.name}</p>,
     },
@@ -241,9 +213,12 @@ const COLUMNS: Column<TableData>[] = [
         format: (value: number | string) => `₦${Number(value).toLocaleString()}`
     },
     {
-        id: "type", label: "PAYMENT TYPE",
+        id: "type",
+        label: "PAYMENT TYPE",
         type: "custom",
-        renderCustom: (value) => <p>{value.channel == "banktransfer" ? "Bank Transfer" : StringUtils.capitalizeWords(value.type)}</p>,
+        renderCustom: (value) => (
+            <p>{value.channel == "banktransfer" ? "Bank Transfer" : StringUtils.capitalizeWords(value.type)}</p>
+        ),
     },
     {
         id: "status",
@@ -255,39 +230,100 @@ const COLUMNS: Column<TableData>[] = [
             </Chip>
         ),
     },
-
     {
-        id: "created_at", label: "DATE CREATED", minWidth: 120,
+        id: "created_at",
+        label: "DATE CREATED",
+        minWidth: 120,
         type: "dateTime",
     },
 ];
 
+// Enhanced Stat Card Component
+interface EnhancedStatCardProps {
+    title: string;
+    value: string;
+    icon: React.ReactNode;
+    gradient: string;
+    trend?: number;
+    isLoading?: boolean;
+}
 
-// Main component to render all cards
+const EnhancedStatCard: React.FC<EnhancedStatCardProps> = ({
+                                                               title,
+                                                               value,
+                                                               icon,
+                                                               gradient,
+                                                               trend,
+                                                               isLoading
+                                                           }) => {
+    const isPositive = trend !== undefined && trend >= 0;
 
+    if (isLoading) {
+        return (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 animate-pulse">
+                <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded-xl mb-4" />
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2" />
+                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded" />
+            </div>
+        );
+    }
+
+    return (
+        <div className="group relative bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-300 overflow-hidden">
+            {/* Background gradient effect */}
+            <div className={`absolute inset-0 opacity-0 group-hover:opacity-5 transition-opacity duration-300 ${gradient}`} />
+
+            <div className="relative z-10">
+                {/* Icon and Trend */}
+                <div className="flex items-start justify-between mb-4">
+                    <div className={`w-12 h-12 rounded-xl ${gradient} flex items-center justify-center shadow-lg text-white`}>
+                        {icon}
+                    </div>
+                    {trend !== undefined && (
+                        <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            isPositive
+                                ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                                : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                        }`}>
+                            {isPositive ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
+                            {Math.abs(trend).toFixed(1)}%
+                        </div>
+                    )}
+                </div>
+
+                {/* Title */}
+                <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+                    {title}
+                </h4>
+
+                {/* Value */}
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {value}
+                </p>
+            </div>
+        </div>
+    );
+};
+
+// Main Payment Cards Component
 const PaymentCards: React.FC = () => {
     const { authState } = useAuth();
-    const { setShowSearchQuery, filterState } = useUI();
+    const { setShowSearchQuery } = useUI();
     const [loadingCards, setLoadingCards] = useState(true);
     const [statsData, setStatsData] = useState<any>();
     const [selectedCategory, setSelectedCategory] = useState<CategoryKeys | "all">("all");
     const [currency, setCurrency] = useState<"NGN" | "USD" | "KES">("NGN");
+    const [showFilters, setShowFilters] = useState(false);
 
-    // Local state for date selection
     const [startDate, setStartDate] = useState<string>(() => {
-        if (filterState.dateRange?.startDate) {
-            return filterState.dateRange.startDate;
-        }
         const twoDaysAgo = new Date();
         twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
         return twoDaysAgo.toISOString().slice(0, 10);
     });
 
-
     const [endDate, setEndDate] = useState<string>(() =>
-        filterState.dateRange?.endDate || new Date().toISOString().slice(0, 10)
+        new Date().toISOString().slice(0, 10)
     );
-
 
     const queryParams = useMemo(() => ({
         start_date: startDate,
@@ -304,8 +340,10 @@ const PaymentCards: React.FC = () => {
                 timeout: 60000,
             });
             setStatsData(response.data?.data);
+            toast.success("Data refreshed successfully");
         } catch (error) {
             console.error("Error fetching data:", error);
+            toast.error("Failed to fetch statistics");
         } finally {
             setLoadingCards(false);
         }
@@ -329,23 +367,23 @@ const PaymentCards: React.FC = () => {
 
     const categories = {
         Transactions: [
-            { title: "Total Card Transaction Value", key: "totalCardTransactionValue", isMoney: true },
-            { title: "Total PWB Transfer Value", key: "totalPwbTransferValue", isMoney: true },
-            { title: "Total Pay with Phone", key: "totalPayWithPhone", isMoney: true },
-            { title: "Total Pay with Mobile Money", key: "totalPayWithMobileMoney", isMoney: true },
+            { title: "Card Transaction Value", key: "totalCardTransactionValue", isMoney: true, icon: <FiCreditCard className="w-6 h-6" />, gradient: "bg-gradient-to-br from-blue-500 to-blue-600" },
+            { title: "PWB Transfer Value", key: "totalPwbTransferValue", isMoney: true, icon: <Wallet className="w-6 h-6" />, gradient: "bg-gradient-to-br from-purple-500 to-purple-600" },
+            { title: "Pay with Phone", key: "totalPayWithPhone", isMoney: true, icon: <FiSmartphone className="w-6 h-6" />, gradient: "bg-gradient-to-br from-emerald-500 to-emerald-600" },
+            { title: "Mobile Money", key: "totalPayWithMobileMoney", isMoney: true, icon: <FiDollarSign className="w-6 h-6" />, gradient: "bg-gradient-to-br from-orange-500 to-orange-600" },
         ],
         Revenue: [
-            { title: "Card Revenue", key: "cardRevenue", isMoney: true },
-            { title: "PWB Transfer Revenue", key: "pwbTransferRevenue", isMoney: true },
-            { title: "Pay with Phone Revenue", key: "payWithPhoneRevenue", isMoney: true },
-            { title: "Mobile Money Revenue", key: "mobileMoneyRevenue", isMoney: true },
+            { title: "Card Revenue", key: "cardRevenue", isMoney: true, icon: <FiTrendingUp className="w-6 h-6" />, gradient: "bg-gradient-to-br from-green-500 to-green-600" },
+            { title: "PWB Transfer Revenue", key: "pwbTransferRevenue", isMoney: true, icon: <FiTrendingUp className="w-6 h-6" />, gradient: "bg-gradient-to-br from-teal-500 to-teal-600" },
+            { title: "Pay with Phone Revenue", key: "payWithPhoneRevenue", isMoney: true, icon: <FiTrendingUp className="w-6 h-6" />, gradient: "bg-gradient-to-br from-indigo-500 to-indigo-600" },
+            { title: "Mobile Money Revenue", key: "mobileMoneyRevenue", isMoney: true, icon: <FiTrendingUp className="w-6 h-6" />, gradient: "bg-gradient-to-br from-pink-500 to-pink-600" },
         ],
         Merchants: [
-            { title: "Total Merchants", key: "totalMerchants", isMoney: false },
-            { title: "Total Active Merchants", key: "totalActiveMerchants", isMoney: false },
-            { title: "Total Pending Merchants", key: "totalPendingMerchants", isMoney: false },
-            { title: "Total Rejected Merchants", key: "totalRejectedMerchants", isMoney: false },
-            { title: "Total Blacklisted Merchants", key: "totalBlacklistedMerchants", isMoney: false },
+            { title: "Total Merchants", key: "totalMerchants", isMoney: false, icon: <FiUsers className="w-6 h-6" />, gradient: "bg-gradient-to-br from-blue-500 to-blue-600" },
+            { title: "Active Merchants", key: "totalActiveMerchants", isMoney: false, icon: <CheckCircle2 className="w-6 h-6" />, gradient: "bg-gradient-to-br from-green-500 to-green-600" },
+            { title: "Pending Merchants", key: "totalPendingMerchants", isMoney: false, icon: <Clock className="w-6 h-6" />, gradient: "bg-gradient-to-br from-yellow-500 to-yellow-600" },
+            { title: "Rejected Merchants", key: "totalRejectedMerchants", isMoney: false, icon: <XCircle className="w-6 h-6" />, gradient: "bg-gradient-to-br from-red-500 to-red-600" },
+            { title: "Blacklisted Merchants", key: "totalBlacklistedMerchants", isMoney: false, icon: <AlertCircle className="w-6 h-6" />, gradient: "bg-gradient-to-br from-gray-500 to-gray-600" },
         ],
     } as const;
 
@@ -364,77 +402,145 @@ const PaymentCards: React.FC = () => {
             ? [...Object.values(categories).flat()]
             : [...(categories[selectedCategory] || [])];
 
+    const currencyOptions = [
+        { code: "NGN", symbol: "₦", name: "Nigerian Naira", flag: "🇳🇬" },
+        { code: "USD", symbol: "$", name: "US Dollar", flag: "🇺🇸" },
+        { code: "KES", symbol: "KSh", name: "Kenyan Shilling", flag: "🇰🇪" },
+    ];
+
     return (
-        <div className="p-4">
-            {/* Top Controls */}
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-                <div className="flex flex-wrap gap-2 items-center">
-                    <select
-                        value={currency}
-                        onChange={(e) => setCurrency(e.target.value as "NGN" | "USD")}
-                        className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 text-sm"
-                    >
-                        <option value="NGN">Naira (₦)</option>
-                        <option value="USD">Dollar ($)</option>
-                    </select>
+        <div className="space-y-6">
+            {/* Header Card with Filters */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+                            Payment Metrics Overview
+                        </h2>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                            Track your payment performance and merchant statistics
+                        </p>
+                    </div>
 
-                    <select
-                        value={selectedCategory}
-                        onChange={(e) => setSelectedCategory(e.target.value as CategoryKeys | "all")}
-                        className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 text-sm"
-                    >
-                        <option value="all">All Categories</option>
-                        <option value="Transactions">Transactions</option>
-                        <option value="Revenue">Revenue</option>
-                        <option value="Merchants">Merchants</option>
-                    </select>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setShowFilters(!showFilters)}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-medium transition-colors text-sm"
+                        >
+                            <FiFilter className="w-4 h-4" />
+                            Filters
+                            {showFilters ? <FiChevronUp className="w-4 h-4" /> : <FiChevronDown className="w-4 h-4" />}
+                        </button>
+                        <button
+                            onClick={fetchStats}
+                            disabled={loadingCards}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition-colors text-sm disabled:opacity-50"
+                        >
+                            <FiRefreshCcw className={`w-4 h-4 ${loadingCards ? "animate-spin" : ""}`} />
+                            Refresh
+                        </button>
+                        <button className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors text-sm">
+                            <FiDownload className="w-4 h-4" />
+                            Export
+                        </button>
+                    </div>
                 </div>
 
-                {/* Date & Refresh Controls */}
-                <div className="flex flex-wrap items-center gap-2">
-                    <label className="text-sm text-gray-600">Start:</label>
-                    <input
-                        type="date"
-                        className="border rounded px-2 py-1 text-sm"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                    />
+                {/* Collapsible Filters */}
+                {showFilters && (
+                    <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            {/* Category Filter */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    <Layers className="w-4 h-4 inline mr-1" />
+                                    Category
+                                </label>
+                                <select
+                                    value={selectedCategory}
+                                    onChange={(e) => setSelectedCategory(e.target.value as CategoryKeys | "all")}
+                                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                                >
+                                    <option value="all">All Categories</option>
+                                    <option value="Transactions">Transactions</option>
+                                    <option value="Revenue">Revenue</option>
+                                    <option value="Merchants">Merchants</option>
+                                </select>
+                            </div>
 
-                    <label className="text-sm text-gray-600">End:</label>
-                    <input
-                        type="date"
-                        className="border rounded px-2 py-1 text-sm"
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                    />
+                            {/* Currency Filter */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    <FiDollarSign className="w-4 h-4 inline mr-1" />
+                                    Currency
+                                </label>
+                                <select
+                                    value={currency}
+                                    onChange={(e) => setCurrency(e.target.value as "NGN" | "USD" | "KES")}
+                                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                                >
+                                    {currencyOptions.map((cur) => (
+                                        <option key={cur.code} value={cur.code}>
+                                            {cur.flag} {cur.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
 
-                    <button
-                        onClick={fetchStats}
-                        className="flex items-center px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
-                    >
-                        <FiRefreshCcw className="mr-1" /> Refresh
-                    </button>
-                </div>
+                            {/* Start Date */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    <FiCalendar className="w-4 h-4 inline mr-1" />
+                                    Start Date
+                                </label>
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                                />
+                            </div>
+
+                            {/* End Date */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    <FiCalendar className="w-4 h-4 inline mr-1" />
+                                    End Date
+                                </label>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Date Range Display */}
+                        <div className="mt-4 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                            <FiActivity className="w-4 h-4" />
+                            <span>
+                                Showing data from <strong>{new Date(startDate).toLocaleDateString()}</strong> to{" "}
+                                <strong>{new Date(endDate).toLocaleDateString()}</strong>
+                            </span>
+                        </div>
+                    </div>
+                )}
             </div>
 
-            {/* Selected Range Display */}
-            <p className="text-sm text-gray-600 mb-4">
-                Showing stats from <strong>{new Date(startDate).toLocaleDateString()}</strong> to{" "}
-                <strong>{new Date(endDate).toLocaleDateString()}</strong>
-            </p>
-
-            {/* Metric Cards */}
+            {/* Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredCards.map((card, index) => (
-                    <MetricCard
+                    <EnhancedStatCard
                         key={index}
-                        count={
-                            (card.isMoney ? (currency === "NGN" ? "₦" : "$") : "") +
+                        title={card.title}
+                        value={
+                            (card.isMoney ? (currency === "NGN" ? "₦" : currency === "USD" ? "$" : "KSh") : "") +
                             formatNumber(getCardValue(card.key))
                         }
-                        title={card.title}
+                        icon={card.icon}
+                        gradient={card.gradient}
                         isLoading={loadingCards}
-                        variant="success"
                     />
                 ))}
             </div>
@@ -442,10 +548,10 @@ const PaymentCards: React.FC = () => {
     );
 };
 
-
+// Main Homepage Component
 export default function Homepage() {
     const { authState } = useAuth();
-    const router = useRouter()
+    const router = useRouter();
     const [dateRange, setDateRange] = useState({
         startDate: moment().subtract(60, 'days').toDate(),
         endDate: moment().toDate()
@@ -460,6 +566,8 @@ export default function Homepage() {
     const [loading, setLoading] = useState<boolean>(true);
     const [currentPage, setCurrentPage] = useState<number>(1);
     const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 1, limit: 20 });
+    const [modalData, setModalData] = useState<TableData | null>(null);
+    const [showGatewayResponse, setShowGatewayResponse] = useState(false);
 
     const fetchData = useCallback(async (page: number) => {
         if (!authState.token) return;
@@ -468,206 +576,402 @@ export default function Homepage() {
             const response = await axiosInstance.get<Response>("/finance/transactions", {
                 params: { ...queryParams, page, limit: pagination.limit },
                 headers: { Authorization: `Bearer ${authState.token}` },
-                timeout:60000
+                timeout: 60000
             });
             setData(response.data?.data);
             setPagination(response.data.pagination ? response.data.pagination : { totalItems: 0, totalPages: 1, limit: 20 });
         } catch (error) {
             console.error("Error fetching data:", error);
+            toast.error("Failed to fetch transactions");
         } finally {
             setLoading(false);
         }
     }, [authState.token, queryParams, pagination.limit]);
+
     useEffect(() => {
         fetchData(currentPage);
     }, [fetchData, currentPage]);
+
     const handleDateChange = useCallback(({ startDate, endDate }: { startDate: Date, endDate: Date }) => {
-        console.log("startDate from overview", startDate)
         setDateRange({ startDate, endDate });
     }, []);
 
-    const [modalData, setModalData] = useState<TableData | null>(null)
-    const [showGatewayResponse, setShowGatewayResponse] = useState(false);
-
-
-
     return (
-        <div className="h-full min-h-screen">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
             <Header headerTitle="Overview" />
-            <PaymentCards />
+
+            <div className="p-6">
+                <PaymentCards />
+
+                {/* Recent Transactions Section */}
+                {data && data.table && data.table.length > 0 && (
+                    <div className="mt-8 bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Recent Transactions</h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">Latest payment activities</p>
+                            </div>
+                        </div>
+
+                        <Table
+                            columns={COLUMNS}
+                            data={data.table}
+                            pagination={pagination}
+                            currentPage={currentPage}
+                            onPageChange={setCurrentPage}
+                            loading={loading}
+                            onRowClick={(row) => setModalData(row)}
+                        />
+                    </div>
+                )}
+            </div>
+
+            {/* Enhanced Transaction Details Modal */}
             <Modal
                 isOpen={!!modalData}
-                onClose={() => setModalData(null)}
+                onClose={() => {
+                    setModalData(null);
+                    setShowGatewayResponse(false);
+                }}
                 header={
                     <div className="space-y-4">
-                        <h2 className="text-xl font-semibold text-gray-800">Transaction Details</h2>
-                        <div className="flex gap-4">
-                            <Buttons onClick={() => router.push(`/dashboard/operations/merchant/${modalData?.business_id}/business` as RouteLiteral)} label="Go to business" type="smOutlineButton" />
-                            <Buttons label="Resend Notification" fullWidth type="smOutlineButton" />
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+                                    Transaction Details
+                                </h2>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                    Reference: {modalData?.reference}
+                                </p>
+                            </div>
+                            <Chip variant={modalData?.status || 'pending'}>
+                                {modalData?.status}
+                            </Chip>
+                        </div>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => router.push(`/dashboard/operations/merchant/${modalData?.business_id}/business` as RouteLiteral)}
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                            >
+                                <FiExternalLink className="w-4 h-4" />
+                                View Business
+                            </button>
+                            <button className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors">
+                                <FiSend className="w-4 h-4" />
+                                Resend Webhook
+                            </button>
                         </div>
                     </div>
                 }
                 scrollableContent={true}
             >
                 {modalData ? (
-                    <div className="space-y-4 p-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Transaction Fields */}
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Transaction ID:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.id}</p>
+                    <div className="space-y-6">
+                        {/* Transaction Summary Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
+                                <FiDollarSign className="w-5 h-5 text-white" />
                             </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Business ID:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.business_id}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Currency:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.currency}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Amount:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.amount}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Fee:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.fee}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Total:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.total}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Transaction Reference:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.trx}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Channel:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.channel}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Status:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">{modalData.status}</p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Paid At:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">
-                                    {moment(modalData.paid_at).format('MMMM Do YYYY, h:mm:ss a')}
-                                </p>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-sm text-gray-600"><strong>Created At:</strong></p>
-                                <p className="text-sm font-medium text-gray-800">
-                                    {moment(modalData.created_at).format('MMMM Do YYYY, h:mm:ss a')}
-                                </p>
-                            </div>
+                            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Amount</span>
                         </div>
-
-                        {/* Business Details */}
-                        <div className="mt-6">
-                            <h3 className="text-lg font-semibold text-gray-800">Business Details</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                                <div className="space-y-2">
-                                    <p className="text-sm text-gray-600"><strong>Business Name:</strong></p>
-                                    <p className="text-sm font-medium text-gray-800">{modalData.business.name}</p>
-                                </div>
-                                <div className="space-y-2">
-                                    <p className="text-sm text-gray-600"><strong>Business Email:</strong></p>
-                                    <p className="text-sm font-medium text-gray-800">{modalData.business.biz_email}</p>
-                                </div>
-                                <div className="space-y-2">
-                                    <p className="text-sm text-gray-600"><strong>Business Phone:</strong></p>
-                                    <p className="text-sm font-medium text-gray-800">{modalData.business.biz_phone}</p>
-                                </div>
-                                <div className="space-y-2">
-                                    <p className="text-sm text-gray-600"><strong>Business Address:</strong></p>
-                                    <p className="text-sm font-medium text-gray-800">{modalData.business.biz_address}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Collapsible Gateway Response Section */}
-                        <div className="mt-6">
-                            <button
-                                onClick={() => setShowGatewayResponse(!showGatewayResponse)}
-                                className="flex items-center justify-between w-full p-3 bg-gray-100 rounded-lg hover:bg-gray-200 focus:outline-none"
-                            >
-                                <span className="text-sm font-medium text-gray-700">
-                                    {showGatewayResponse ? 'Hide Gateway Response' : 'Show Gateway Response'}
-                                </span>
-                                <svg
-                                    className={`w-5 h-5 transition-transform ${showGatewayResponse ? 'transform rotate-180' : ''}`}
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                >
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                </svg>
-                            </button>
-
-                            {showGatewayResponse && modalData.gateway_response && (
-                                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                                    <div className="space-y-4">
-                                        <div className="space-y-2">
-                                            <p className="text-sm text-gray-600"><strong>Gateway Response Code:</strong></p>
-                                            <p className="text-sm font-medium text-gray-800">
-                                                {modalData.gateway_response ?? "N/A"}
-                                            </p>
-                                        </div>
-                                        {/*<div className="space-y-2">*/}
-                                        {/*    <p className="text-sm text-gray-600"><strong>Gateway Response Message:</strong></p>*/}
-                                        {/*    <p className="text-sm font-medium text-gray-800">*/}
-                                        {/*        {JSON.parse(modalData.gateway_response).data.responseMessage ?? "N/A"}*/}
-                                        {/*    </p>*/}
-                                        {/*</div>*/}
-                                        {/*<div className="space-y-2">*/}
-                                        {/*    <p className="text-sm text-gray-600"><strong>Provider:</strong></p>*/}
-                                        {/*    <p className="text-sm font-medium text-gray-800">*/}
-                                        {/*        {JSON.parse(modalData.gateway_response).data.provider ?? "N/A"}*/}
-                                        {/*    </p>*/}
-                                        {/*</div>*/}
-                                        {/*<div className="space-y-2">*/}
-                                        {/*    <p className="text-sm text-gray-600"><strong>Transaction Status:</strong></p>*/}
-                                        {/*    <p className="text-sm font-medium text-gray-800">*/}
-                                        {/*        {JSON.parse(modalData.gateway_response).data.status ?? "N/A"}*/}
-                                        {/*    </p>*/}
-                                        {/*</div>*/}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                            {modalData.currency === "NGN" ? "₦" : "$"}{Number(modalData.amount).toLocaleString()}
+                        </p>
                     </div>
-                ) : (
-                    <p className="text-center text-gray-600 py-4">Loading transaction details...</p>
-                )}
-            </Modal>
-            {/*<div className="space-y-4 mt-5 p-2">*/}
-                {/*<div className="flex justify-between items-center flex-wrap gap-2">*/}
-                {/*    <h2 className="text-2xl font-normal">Recent Transaction</h2>*/}
-                {/*    <DateRangeSelector*/}
-                {/*        defaultRelativeRangeValue="7d"*/}
-                {/*        onRelativeRangeChange={handleDateChange}*/}
-                {/*        startDate={dateRange.startDate}*/}
-                {/*        endDate={dateRange.endDate}*/}
-                {/*        onDateChange={handleDateChange}*/}
-                {/*    />*/}
-                {/*</div>*/}
 
-                {/*<div className="col-span-2 p-4">*/}
-                {/*    <Table<TableData>*/}
-                {/*        headers={COLUMNS}*/}
-                {/*        data={data?.table || []}*/}
-                {/*        limit={pagination.limit}*/}
-                {/*        loading={loading}*/}
-                {/*        // onRowClick={(row) => router.push(`/dashboard/finance/transactions/${row.id}` as RouteLiteral)}*/}
-                {/*        onRowClick={(row) => setModalData(row)} // Handle row click*/}
-                {/*        pagination={pagination}*/}
-                {/*        onPaginate={setCurrentPage}*/}
-                {/*    />*/}
+                    <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="w-10 h-10 rounded-lg bg-emerald-600 flex items-center justify-center">
+                                <FiActivity className="w-5 h-5 text-white" />
+                            </div>
+                            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Fee</span>
+                        </div>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                            {modalData.currency === "NGN" ? "₦" : "$"}{Number(modalData.fee).toLocaleString()}
+                        </p>
+                    </div>
 
-                {/*</div>*/}
-            {/*</div>*/}
+                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
+                    <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-lg bg-purple-600 flex items-center justify-center">
+                    <FiTrendingUp className="w-5 h-5 text-white" />
+                    </div>
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Total</span>
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {modalData.currency === "NGN" ? "₦" : "$"}{Number(modalData.total).toLocaleString()}
+            </p>
         </div>
-    );
+</div>
+
+{/* Transaction Information */}
+    <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <FiCreditCard className="w-5 h-5" />
+            Transaction Information
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Transaction ID</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white font-mono bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700">
+                    {modalData.id}
+                </p>
+            </div>
+            <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Business ID</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {modalData.business_id}
+                </p>
+            </div>
+            <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Currency</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {modalData.currency}
+                </p>
+            </div>
+            <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Transaction Reference</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white font-mono">
+                    {modalData.trx}
+                </p>
+            </div>
+            <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Channel</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {StringUtils.capitalizeWords(modalData.channel)}
+                </p>
+            </div>
+            <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Payment Type</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {modalData.channel === "banktransfer" ? "Bank Transfer" : StringUtils.capitalizeWords(modalData.type)}
+                </p>
+            </div>
+            <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Gateway</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {StringUtils.capitalizeWords(modalData.gateway)}
+                </p>
+            </div>
+            <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">IP Address</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white font-mono">
+                    {modalData.ip_address || "N/A"}
+                </p>
+            </div>
+            <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Paid At</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {moment(modalData.paid_at).format('MMM DD, YYYY • h:mm A')}
+                </p>
+            </div>
+            <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Created At</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {moment(modalData.created_at).format('MMM DD, YYYY • h:mm A')}
+                </p>
+            </div>
+            {modalData.settled_at && (
+                <div className="space-y-1">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Settled At</p>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                        {moment(modalData.settled_at).format('MMM DD, YYYY • h:mm A')}
+                    </p>
+                </div>
+            )}
+        </div>
+    </div>
+
+{/* Business Details */}
+    <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <Building2 className="w-5 h-5" />
+            Business Details
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Business Name</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {modalData.business.name}
+                </p>
+            </div>
+            <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Trade Name</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {modalData.business.trade_name || "N/A"}
+                </p>
+            </div>
+            <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Business Email</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {modalData.business.biz_email}
+                </p>
+            </div>
+            <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Business Phone</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {modalData.business.biz_phone}
+                </p>
+            </div>
+            <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Country</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {modalData.business.biz_country}
+                </p>
+            </div>
+            <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Business Type</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {StringUtils.capitalizeWords(modalData.business.business_type)}
+                </p>
+            </div>
+            <div className="space-y-1 md:col-span-2">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Business Address</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {modalData.business.biz_address}
+                </p>
+            </div>
+        </div>
+    </div>
+
+{/* Webhook Information */}
+{(modalData.webhook_status || modalData.webhook_count > 0) && (
+        <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 rounded-xl p-6 border border-indigo-200 dark:border-indigo-800">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <FiSend className="w-5 h-5" />
+                Webhook Information
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</p>
+                    <Chip variant={modalData.webhook_status || 'pending'}>
+                        {modalData.webhook_status || 'Pending'}
+                    </Chip>
+                </div>
+                <div className="space-y-1">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Attempt Count</p>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                        {modalData.webhook_count} attempt(s)
+                    </p>
+                </div>
+            </div>
+        </div>
+    )}
+
+{/* Gateway Response - Collapsible */}
+    <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+        <button
+            onClick={() => setShowGatewayResponse(!showGatewayResponse)}
+            className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors"
+        >
+            <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
+                    {showGatewayResponse ? <FiEyeOff className="w-5 h-5 text-white" /> : <FiEye className="w-5 h-5 text-white" />}
+                </div>
+                <div className="text-left">
+                    <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+                        Gateway Response
+                    </h3>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                        {showGatewayResponse ? 'Click to hide' : 'Click to view'} detailed response
+                    </p>
+                </div>
+            </div>
+            {showGatewayResponse ? (
+                <FiChevronUp className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+            ) : (
+                <FiChevronDown className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+            )}
+        </button>
+
+        {showGatewayResponse && modalData.gateway_response && (
+            <div className="p-6 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+                <div className="bg-gray-900 dark:bg-black rounded-lg p-4 overflow-x-auto">
+                                        <pre className="text-xs text-green-400 font-mono whitespace-pre-wrap break-words">
+                                            {typeof modalData.gateway_response === 'string'
+                                                ? modalData.gateway_response
+                                                : JSON.stringify(modalData.gateway_response, null, 2)}
+                                        </pre>
+                </div>
+            </div>
+        )}
+    </div>
+
+{/* Settlement Information */}
+{modalData.settlement_batchid && (
+        <div className="bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/20 dark:to-teal-800/20 rounded-xl p-6 border border-teal-200 dark:border-teal-800">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5" />
+                Settlement Information
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Batch ID</p>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white font-mono">
+                        {modalData.settlement_batchid}
+                    </p>
+                </div>
+                <div className="space-y-1">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Settlement Type</p>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                        {StringUtils.capitalizeWords(modalData.business.instant_settlement || "Standard")}
+                    </p>
+                </div>
+            </div>
+        </div>
+    )}
+
+{/* Additional Transaction Metadata */}
+    <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <FiAlertCircle className="w-5 h-5" />
+            Additional Information
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">System Fee</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {modalData.currency === "NGN" ? "₦" : "$"}{Number(modalData.sys_fee).toLocaleString()}
+                </p>
+            </div>
+            <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Stamp Duty</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {modalData.currency === "NGN" ? "₦" : "$"}{Number(modalData.stamp_duty).toLocaleString()}
+                </p>
+            </div>
+            <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Domain</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {modalData.domain || "N/A"}
+                </p>
+            </div>
+            <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Card Attempts</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {modalData.card_attempt || 0}
+                </p>
+            </div>
+            {modalData.split_code && (
+                <div className="space-y-1 md:col-span-2">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Split Code</p>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white font-mono">
+                        {modalData.split_code}
+                    </p>
+                </div>
+            )}
+        </div>
+    </div>
+</div>
+) : (
+        <div className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="w-12 h-12 animate-spin text-emerald-600 mb-4" />
+            <p className="text-gray-600 dark:text-gray-400 font-medium">Loading transaction details...</p>
+        </div>
+    )}
+</Modal>
+</div>
+);
 }
