@@ -65,7 +65,7 @@ const Page = () => {
   const [pagination, setPagination] = useState({
     totalItems: 0,
     totalPages: 1,
-    limit: 20,
+    limit: 10,
   });
   const [loading, setLoading] = useState<boolean>(true);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -100,7 +100,7 @@ const Page = () => {
 
         setData(response.data.data || []);
         console.log("response", response);
-        setPagination(response.data.pagination || { totalItems: 0, totalPages: 1, limit: 20 }); // Add default value
+        setPagination(response.data.pagination || { totalItems: 0, totalPages: 1, limit: 10 }); // Add default value
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {

@@ -1,7 +1,8 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 
 const config: Config = {
-  darkMode: 'class', // or 'media' or 'class'
+  darkMode: 'class',
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -56,7 +57,7 @@ const config: Config = {
         },
       },
       screens: {
-        xs: "400px", // Custom screen size for better mobile handling
+        xs: "400px",
       },
       spacing: {
         'menu-padding': '12px',
@@ -64,7 +65,21 @@ const config: Config = {
     },
   },
 
-  plugins: [],
+  plugins: [
+    plugin(function({ addComponents }) {
+      addComponents({
+        '.form-input, .form-select': {
+          '@apply w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-colors': {},
+        },
+        '.table-header': {
+          '@apply px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider': {},
+        },
+        '.table-cell': {
+          '@apply px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100': {},
+        },
+      });
+    }),
+  ],
 };
 
 export default config;

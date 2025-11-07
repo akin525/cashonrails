@@ -1,243 +1,99 @@
 "use client";
-import React, {
-    useCallback,
-    useEffect,
-    useMemo,
-    useState,
-    Fragment,
-} from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/authContext";
-import { useUI } from "@/contexts/uiContext";
+import React from "react";
 import Header from "./Header";
-import axiosInstance from "@/helpers/axiosInstance";
-import { RouteLiteral } from "nextjs-routes";
-import { MetricCard } from "@/components/MatricCard";
-import { StringUtils } from "@/helpers/extras";
-import { Chip } from "@/components/chip";
+import { useMerchants } from "@/hooks/useMerchants";
+import { MetricsSection } from "@/components/merchants/MetricsSection";
+import { MerchantCard } from "@/components/merchants/MerchantCard";
+import { Pagination } from "@/components/merchants/Pagination";
+import { MerchantGridSkeleton } from "@/components/merchants/MerchantCardSkeleton";
+import { AlertCircle } from "lucide-react";
 
-/* ───────────────────── Types ───────────────────── */
-export interface StatsData {
-    total_merchant: number;
-    approved_merchant: number;
-    new_merchant: number;
-    rejected_merchant: number;
-    pending_merchant: number;
-}
+const ITEMS_PER_PAGE = 10;
 
-export interface TableData {
-    id: string;
-    merchant_id: string;
-    merchant_name: string;
-    status: string;
-    total_revenue: string;
-    date_created: string;
-    business_type: string;
-    risk_score: string;
-}
-
-export interface MerchantData {
-    stats: StatsData;
-    table: TableData[];
-}
-
-export interface PaginationRes {
-    totalPage: number;
-    currentPage: number | string;
-    totalItems: number;
-}
-
-export interface MerchantApiPayload {
-    data?: MerchantData;
-    pagination?: PaginationRes;
-}
-
-/* ───────────────────── Page Component ───────────────────── */
 const MerchantsPage: React.FC = () => {
-    const { filterState } = useUI();
-    const { authState } = useAuth();
-    const router = useRouter();
-
-    const [stats, setStats] = useState<StatsData | null>(null);
-    const [merchants, setMerchants] = useState<TableData[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [currentPage, setCurrentPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const limit = 10;
-
-    const queryParams = useMemo(
-        () => ({
-            start_date: filterState.dateRange?.startDate,
-            end_date: filterState.dateRange?.endDate,
-            page: currentPage,
-            limit,
-        }),
-        [filterState, currentPage]
-    );
-
-    const fetchData = useCallback(async () => {
-        if (!authState.token) return;
-        setLoading(true);
-
-        try {
-            const res = await axiosInstance.get<MerchantApiPayload>(
-                "/operations/merchants",
-                {
-                    params: queryParams,
-                    headers: { Authorization: `Bearer ${authState.token}` },
-                    timeout: 60000,
-                }
-            );
-
-// Add this assertion:
-            const merchantData = res.data?.data as MerchantData;
-            const pagination = res.data?.pagination;
-
-            setStats(merchantData.stats);
-            setMerchants(merchantData.table);
-            // setTotalPages(pagination?.totalPages ?? 1);
-            setTotalPages(pagination?.totalPage ?? 1);
-
-
-
-        } catch (err) {
-            console.error("Fetch error", err);
-        } finally {
-            setLoading(false);
-        }
-    }, [authState.token, queryParams]);
-
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
-
-    /* ──────────── Metrics Section ──────────── */
-    const MetricsSection = () =>
-        stats && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 my-4">
-                {(
-                    [
-                        ["Total Merchants", stats.total_merchant],
-                        ["Approved", stats.approved_merchant],
-                        ["Pending", stats.pending_merchant],
-                        ["New", stats.new_merchant],
-                        ["Rejected", stats.rejected_merchant],
-                    ] satisfies [string, number][]
-                ).map(([title, count]) => (
-                    <MetricCard
-                        key={title}
-                        title={title}
-                        count={count.toString()}
-                        variant="success"
-                        isLoading={loading}
-                    />
-                ))}
-            </div>
-        );
-
-    /* ──────────── Merchant Card ──────────── */
-    const MerchantCard = ({ merchant }: { merchant: TableData }) => (
-        <div
-            onClick={() =>
-                router.push(
-                    `/dashboard/operations/merchant/${merchant.merchant_id}/business` as RouteLiteral
-                )
-            }
-            className="bg-white dark:bg-gray-800 rounded-xl shadow-md hover:shadow-xl transition-all p-5 cursor-pointer group"
-        >
-            <div className="flex justify-between items-center mb-3">
-                <h2 className="font-semibold text-lg group-hover:text-primary">
-                    {merchant.merchant_name}
-                </h2>
-                <Chip variant={merchant.status.toLowerCase()}>
-                    {StringUtils.capitalizeWords(merchant.status)}
-                </Chip>
-            </div>
-            <div className="text-sm space-y-1 text-gray-600 dark:text-gray-300">
-                <p>
-                    <strong>Merchant ID:</strong> {merchant.merchant_id}
-                </p>
-                <p>
-                    <strong>Business Type:</strong> {merchant.business_type}
-                </p>
-                <p>
-                    <strong>Date Created:</strong> {merchant.date_created}
-                </p>
-                <p>
-                    <strong>Risk Score:</strong> {merchant.risk_score}
-                </p>
-            </div>
-        </div>
-    );
-
-    /* ──────────── Pagination ──────────── */
-    const Pagination = () => {
-        if (totalPages <= 1) return null;
-        const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
-
-        return (
-            <div className="flex justify-center mt-10 space-x-1 text-sm">
-                <button
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="px-3 py-1 border rounded disabled:opacity-30"
-                >
-                    Prev
-                </button>
-                {pages.map((p) => (
-                    <Fragment key={p}>
-                        {Math.abs(p - currentPage) <= 2 || p === 1 || p === totalPages ? (
-                            <button
-                                onClick={() => setCurrentPage(p)}
-                                className={`px-3 py-1 border rounded ${
-                                    p === currentPage
-                                        ? "bg-primary text-white font-semibold"
-                                        : ""
-                                }`}
-                            >
-                                {p}
-                            </button>
-                        ) : (
-                            (p === currentPage - 3 || p === currentPage + 3) && (
-                                <span className="px-2">…</span>
-                            )
-                        )}
-                    </Fragment>
-                ))}
-                <button
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    className="px-3 py-1 border rounded disabled:opacity-30"
-                >
-                    Next
-                </button>
-            </div>
-        );
-    };
+    const {
+        stats,
+        merchants,
+        loading,
+        error,
+        currentPage,
+        totalPages,
+        setCurrentPage,
+        refetch,
+    } = useMerchants({ limit: ITEMS_PER_PAGE });
 
     return (
         <>
             <Header headerTitle="Business Merchants" />
-            <div className="p-4">
-                <MetricsSection />
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-6">
-                    {loading
-                        ? Array.from({ length: limit }).map((_, i) => (
-                            <div
-                                key={i}
-                                className="h-36 bg-gray-200 dark:bg-gray-700 animate-pulse rounded-xl"
-                            />
-                        ))
-                        : merchants.map((merchant) => (
-                            <MerchantCard key={merchant.merchant_id} merchant={merchant} />
-                        ))}
-                </div>
+            <div className="p-4 max-w-[1600px] mx-auto">
+                {/* Metrics Section */}
+                <MetricsSection stats={stats} loading={loading} />
 
-                {!loading && <Pagination />}
+                {/* Error State */}
+                {error && (
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6 flex items-center gap-3">
+                        <AlertCircle className="w-5 h-5 text-red-600" />
+                        <div className="flex-1">
+                            <p className="text-red-800 dark:text-red-200 font-medium">
+                                Failed to load merchants
+                            </p>
+                            <p className="text-red-600 dark:text-red-300 text-sm mt-1">
+                                {error}
+                            </p>
+                        </div>
+                        <button
+                            onClick={refetch}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                        >
+                            Retry
+                        </button>
+                    </div>
+                )}
+
+                {/* Merchants Grid */}
+                <section>
+                    {loading ? (
+                        <MerchantGridSkeleton count={ITEMS_PER_PAGE} />
+                    ) : merchants.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                            {merchants.map((merchant) => (
+                                <MerchantCard
+                                    key={merchant.merchant_id}
+                                    merchant={merchant}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <EmptyState />
+                    )}
+                </section>
+
+                {/* Pagination */}
+                {!loading && merchants.length > 0 && (
+                    <Pagination
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        onPageChange={setCurrentPage}
+                    />
+                )}
             </div>
         </>
     );
 };
+
+const EmptyState: React.FC = () => (
+    <div className="text-center py-16">
+        <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="w-8 h-8 text-gray-400" />
+        </div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            No merchants found
+        </h3>
+        <p className="text-gray-600 dark:text-gray-400">
+            Try adjusting your filters or check back later.
+        </p>
+    </div>
+);
 
 export default MerchantsPage;

@@ -10,12 +10,11 @@ import moment from "moment";
 import { StringUtils } from "@/helpers/extras";
 import Modal from "@/components/modal";
 import axiosInstance from "@/helpers/axiosInstance";
-import {FileSpreadsheet} from "lucide-react";
+import { FileSpreadsheet, RefreshCw, Search, Users, Filter, Download } from "lucide-react";
 import Buttons from "@/components/buttons";
-import {RouteLiteral} from "nextjs-routes";
 import toast from "react-hot-toast";
-// Types
 
+// Types
 interface MerchantData {
     id: string;
     firstname: string;
@@ -41,53 +40,29 @@ const Page = () => {
     const [activeFilter, setActiveFilter] = useState<string>('Total');
 
     const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 1, limit: 10 });
-    // const [pagination1, setPagination1] = useState({ totalItems: 0, totalPages: 1, limit: 10 });
     const [loading, setLoading] = useState<boolean>(true);
     const [data, setData] = useState<MerchantData[]>([]);
     const [data1, setData1] = useState<MerchantData[]>([]);
     const [currentPage, setCurrentPage] = useState<number>(1);
-
+    const [searchQuery, setSearchQuery] = useState<string>("");
+    const [modalData, setModalData] = useState<MerchantData | null>(null);
 
     const TABLE_COLUMNS: Column<MerchantData>[] = [
         { id: "id", label: "ID" },
-
         { id: "firstname", label: "FIRST NAME" },
         { id: "lastname", label: "LAST NAME" },
         { id: "phone", label: "PHONE NUMBER" },
         { id: "email", label: "EMAIL" },
-
         {
             id: "status",
             label: "STATUS",
             type: "custom",
             renderCustom: (value) => <Chip variant={value.status}>{StringUtils.capitalizeWords(value.status)}</Chip>,
         },
-
-
-        { id: "created_at", label: "DATE", type: "dateTime" },
-    ];
-    const TABLE_COLUMNS1: Column<MerchantData>[] = [
-        { id: "id", label: "ID" },
-
-        { id: "firstname", label: "FIRST NAME" },
-        { id: "lastname", label: "LAST NAME" },
-        { id: "phone", label: "PHONE NUMBER" },
-        { id: "email", label: "EMAIL" },
-
-        {
-            id: "status",
-            label: "STATUS",
-            type: "custom",
-            renderCustom: (value) => <Chip variant={value.status}>{StringUtils.capitalizeWords(value.status)}</Chip>,
-        },
-
-
         { id: "created_at", label: "DATE", type: "dateTime" },
     ];
 
-    const [searchQuery, setSearchQuery] = useState<string>("");
-
-// Filter data based on search input
+    // Filter data based on search input
     const filteredData = useMemo(() => {
         if (!data) return [];
         return data.filter((item) =>
@@ -97,29 +72,48 @@ const Page = () => {
         );
     }, [data, searchQuery]);
 
+    // Calculate stats
+    const stats = useMemo(() => {
+        return {
+            total: data.length,
+            active: data.filter(m => m.status === 'active').length,
+            pending: data.filter(m => m.status === 'pending').length,
+            inactive: data.filter(m => m.status === 'inactive').length,
+        };
+    }, [data]);
+
     const downloadCSV = () => {
-        if (!data1.length) return;
+        if (!filteredData.length) {
+            toast.error("No data to export");
+            return;
+        }
 
-        const headers = TABLE_COLUMNS1.map(col => col.label).join(","); // Column headers
-        const rows = data1.map(item =>
-            TABLE_COLUMNS1.map(col => item[col.id as keyof MerchantData] || "").join(",")
-        ).join("\n"); // Data rows
+        const headers = TABLE_COLUMNS.map(col => col.label).join(",");
+        const rows = filteredData.map(item =>
+            TABLE_COLUMNS.map(col => {
+                const value = item[col.id as keyof MerchantData] || "";
+                return `"${value}"`;
+            }).join(",")
+        ).join("\n");
 
-        const csvContent = `data:text/csv;charset=utf-8,${headers}\n${rows}`;
+        const csvContent = `data:text/csv;charset=utf-8,$${headers}\n$$ {rows}`;
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "pending-payout.csv");
+        link.setAttribute("download", `merchants-${moment().format('YYYY-MM-DD')}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        toast.success("CSV exported successfully");
     };
+
     const handleRefresh = async () => {
         setLoading(true);
         await fetchData(currentPage);
-        // await fetchData1(currentPage);
         setLoading(false);
+        toast.success("Data refreshed successfully");
     };
+
     useEffect(() => {
         setShowSearchQuery(true);
         return () => {
@@ -127,31 +121,11 @@ const Page = () => {
         };
     }, [setShowSearchQuery, typedFilterState]);
 
-
     const queryParams = useMemo(() => ({
         status: activeFilter !== 'Total' ? activeFilter : undefined,
         start_date: filterState.dateRange.startDate,
         end_date: filterState.dateRange.endDate,
     }), [activeFilter, filterState]);
-
-    const requery = useCallback(async (id: string | undefined) => {
-        if (!authState.token || !id) return;
-
-        setLoading(true);
-        try {
-            const response = await axiosInstance.get(`/operations/users/${id}`, {
-                headers: { Authorization: `Bearer ${authState.token}` },
-            });
-
-            toast.success(response.data.message);
-        } catch (error) {
-            console.error("Error fetching data:", error);
-            toast.error("Failed to requery payout");
-        } finally {
-            setLoading(false);
-        }
-    }, [authState.token]);
-
 
     const fetchData = useCallback(async (page: number) => {
         if (!authState.token) return;
@@ -165,70 +139,48 @@ const Page = () => {
             setPagination(response.data.pagination ? response.data.pagination : { totalItems: 0, totalPages: 1, limit: 20 });
         } catch (error) {
             console.error("Error fetching data:", error);
+            toast.error("Failed to fetch merchant data");
         } finally {
             setLoading(false);
         }
     }, [authState.token, queryParams, pagination.limit]);
-    // const fetchData1 = useCallback(async (page: number) => {
-    //     if (!authState.token) return;
-    //     setLoading(true);
-    //     try {
-    //         const response = await axiosInstance.get<MerchantData[]>("/finance/pendingpayout", {
-    //             params: { ...queryParams, page, limit: pagination1.limit },
-    //             headers: { Authorization: `Bearer ${authState.token}` },
-    //         });
-    //         setData1(response.data?.data ?? []);
-    //         setPagination1(response.data.pagination ? response.data.pagination : { totalItems: 0, totalPages: 1, limit: 20 });
-    //     } catch (error) {
-    //         console.error("Error fetching data:", error);
-    //     } finally {
-    //         setLoading(false);
-    //     }
-    // }, [authState.token, queryParams, pagination.limit]);
 
     useEffect(() => {
         fetchData(currentPage);
-        // fetchData1(currentPage);
     }, [fetchData, currentPage]);
 
-    const [modalData, setModalData] = useState<MerchantData | null>(null)
-
     return (
-        <div>
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+            {/* Modal */}
             <Modal
                 isOpen={!!modalData}
                 onClose={() => setModalData(null)}
                 header={
-                    <div className="space-y-4">
-                        <h2 className="text-xl font-semibold text-gray-800">Settlement Details</h2>
-                        <div className="flex gap-4">
-                            {/*<Buttons*/}
-                            {/*    label="Go to business"*/}
-                            {/*    type="smOutlineButton"*/}
-                            {/*/>*/}
-                            {/*<Buttons*/}
-                            {/*    onClick={() => requery(modalData?.id)}*/}
-                            {/*    label={loading ? "Requerying..." : "Requery Payout"}*/}
-                            {/*    fullWidth*/}
-                            {/*    type="smOutlineButton"*/}
-                            {/*    disabled={loading}  // Disable button when loading*/}
-                            {/*/>*/}
-
-
+                    <div className="space-y-4 border-b pb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-green-100 rounded-lg">
+                                <Users className="w-6 h-6 text-green-600" />
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-800">Merchant Details</h2>
+                                <p className="text-sm text-gray-500">Complete merchant information</p>
+                            </div>
                         </div>
                     </div>
                 }
                 scrollableContent={true}
             >
                 {modalData ? (
-                    <div className="space-y-4 p-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-6 p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {Object.entries(modalData).map(([key, value]) => (
-                                <div key={key} className="space-y-2">
-                                    <p className="text-sm text-gray-600 font-semibold">{key.replace(/_/g, " ").toUpperCase()}:</p>
-                                    <p className="text-sm font-medium text-gray-800">
+                                <div key={key} className="bg-gray-50 p-4 rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
+                                    <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-2">
+                                        {key.replace(/_/g, " ")}
+                                    </p>
+                                    <p className="text-sm font-medium text-gray-900">
                                         {key.includes("created_at") || key.includes("updated_at")
-                                            ? `${moment(value).format("MMMM Do YYYY, h:mm:ss a")}`
+                                            ? moment(value).format("MMM DD, YYYY • h:mm A")
                                             : value ?? "N/A"}
                                     </p>
                                 </div>
@@ -236,79 +188,142 @@ const Page = () => {
                         </div>
                     </div>
                 ) : (
-                    <p className="text-center text-gray-600 py-4">Loading...</p>
+                    <div className="flex items-center justify-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
+                    </div>
                 )}
             </Modal>
-            <Header headerTitle={"All Merchants"} />
-            <div className="p-4 mt-4">
-                <div className="p-4">
-                    <input
-                        type="text"
-                        placeholder="Search Users..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="border-2 border-green-400 p-3 rounded-md w-full focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-lg font-semibold m-2"
-                    />
 
-                    {/* Flex container for buttons */}
-                    <div className="flex items-center gap-2 m-2">
-                        <button
-                            onClick={handleRefresh}
-                            disabled={loading}
-                            className="bg-green-500 text-white px-4 py-2 text-sm font-medium rounded-lg hover:bg-green-600 transition flex items-center gap-2 shadow-md"
-                        >
-                            {loading ? (
-                                <svg
-                                    className="w-5 h-5 animate-spin"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                >
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                          d="M4 4v6h6M20 20v-6h-6m1-10a9 9 0 11-6.64 15.36"/>
-                                </svg>
-                            ) : (
-                                "Refresh"
-                            )}
-                        </button>
+            {/* Header */}
+            <Header headerTitle="All Merchants" />
 
-                        <button
-                            onClick={downloadCSV}
-                            className="bg-green-600 text-white px-4 py-2 text-sm font-medium rounded-lg hover:bg-green-700 transition flex items-center gap-2 shadow-md"
-                        >
-                            {loading ? (
-                                <svg
-                                    className="w-5 h-5 animate-spin"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                >
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                          d="M4 4v6h6M20 20v-6h-6m1-10a9 9 0 11-6.64 15.36"/>
-                                </svg>
-                            ) : (
-                                <>
-                                    <FileSpreadsheet className="w-5 h-5"/>
-                                    <span>Export To CSV</span>
-                                </>
-                            )}
-                        </button>
+            {/* Main Content */}
+            <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                {/* Stats Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-600 mb-1">Total Merchants</p>
+                                <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
+                            </div>
+                            <div className="p-3 bg-blue-100 rounded-full">
+                                <Users className="w-8 h-8 text-blue-600" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-600 mb-1">Active</p>
+                                <p className="text-3xl font-bold text-green-600">{stats.active}</p>
+                            </div>
+                            <div className="p-3 bg-green-100 rounded-full">
+                                <div className="w-8 h-8 rounded-full bg-green-500"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-600 mb-1">Pending</p>
+                                <p className="text-3xl font-bold text-yellow-600">{stats.pending}</p>
+                            </div>
+                            <div className="p-3 bg-yellow-100 rounded-full">
+                                <div className="w-8 h-8 rounded-full bg-yellow-500"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-600 mb-1">Inactive</p>
+                                <p className="text-3xl font-bold text-gray-600">{stats.inactive}</p>
+                            </div>
+                            <div className="p-3 bg-gray-100 rounded-full">
+                                <div className="w-8 h-8 rounded-full bg-gray-500"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
+                {/* Controls Section */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+                    <div className="flex flex-col lg:flex-row gap-4">
+                        {/* Search Bar */}
+                        <div className="flex-1 relative">
+                            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                            <input
+                                type="text"
+                                placeholder="Search by name, email, phone, or ID..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-sm font-medium placeholder-gray-400"
+                            />
+                            {searchQuery && (
+                                <button
+                                    onClick={() => setSearchQuery("")}
+                                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                >
+                                    ✕
+                                </button>
+                            )}
+                        </div>
 
-                <Table<MerchantData>
-                    headers={TABLE_COLUMNS}
-                    data={filteredData}
-                    limit={pagination.limit}
-                    loading={loading}
-                    pagination={pagination}
-                    onPaginate={setCurrentPage}
-                    onRowClick={(row) => setModalData(row)}
-                    showPagination
-                />
+                        {/* Action Buttons */}
+                        <div className="flex gap-3">
+                            <button
+                                onClick={handleRefresh}
+                                disabled={loading}
+                                className="flex items-center gap-2 px-5 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                            >
+                                <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                                <span className="hidden sm:inline">Refresh</span>
+                            </button>
+
+                            <button
+                                onClick={downloadCSV}
+                                disabled={loading || filteredData.length === 0}
+                                className="flex items-center gap-2 px-5 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                            >
+                                <Download className="w-5 h-5" />
+                                <span className="hidden sm:inline">Export CSV</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Search Results Info */}
+                    {searchQuery && (
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                            <p className="text-sm text-gray-600">
+                                Found <span className="font-semibold text-green-600">{filteredData.length}</span> result{filteredData.length !== 1 ? 's' : ''}
+                                {filteredData.length !== data.length && <span> out of {data.length} total merchants</span>}
+                            </p>
+                        </div>
+                    )}
+                </div>
+
+                {/* Table Section */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="p-6 border-b border-gray-200">
+                        <h3 className="text-lg font-semibold text-gray-900">Merchant List</h3>
+                        <p className="text-sm text-gray-500 mt-1">Manage and view all merchant accounts</p>
+                    </div>
+
+                    <Table<MerchantData>
+                        headers={TABLE_COLUMNS}
+                        data={filteredData}
+                        limit={pagination.limit}
+                        loading={loading}
+                        pagination={pagination}
+                        onPaginate={setCurrentPage}
+                        onRowClick={(row) => setModalData(row)}
+                        showPagination
+                    />
+                </div>
             </div>
         </div>
     );

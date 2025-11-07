@@ -25,6 +25,7 @@ declare module "nextjs-routes" {
     | DynamicRoute<"/dashboard/compliance/merchant-approval/[id]/fees", { "id": string }>
     | DynamicRoute<"/dashboard/compliance/merchant-approval/[id]/limits", { "id": string }>
     | DynamicRoute<"/dashboard/compliance/merchant-approval/[id]/profile", { "id": string }>
+    | DynamicRoute<"/dashboard/compliance/merchant-approval/[id]/verification", { "id": string }>
     | StaticRoute<"/dashboard/finance/chargebacks">
     | DynamicRoute<"/dashboard/finance/chargebacks/[id]", { "id": string }>
     | StaticRoute<"/dashboard/finance/checkout">

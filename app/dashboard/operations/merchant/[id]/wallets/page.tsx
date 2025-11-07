@@ -219,6 +219,7 @@ const CreateWalletModal = ({
 
   const currencyOptions = [
     { code: "USD", name: "US Dollar", flag: "🇺🇸" },
+    { code: "USDT", name: "Crypto", flag: "🇺🇸" },
     { code: "EUR", name: "Euro", flag: "🇪🇺" },
     { code: "GBP", name: "British Pound", flag: "🇬🇧" },
     { code: "NGN", name: "Nigerian Naira", flag: "🇳🇬" },

@@ -97,21 +97,21 @@ const Sidebar: React.FC = () => {
               activeIcon: <BarChart3 className="w-5 h-5 text-emerald-500" />,
               label: "Overview",
               path: "/dashboard/overview",
-              roles: ["admin", "superadmin"],
+              // roles: ["admin", "superadmin"],
             },
             {
               icon: <PieChart className="w-5 h-5" />,
               activeIcon: <PieChart className="w-5 h-5 text-emerald-500" />,
               label: "Board Analytics",
               path: "/dashboard/overviewNew",
-              roles: ["superadmin"],
+              // roles: ["superadmin"],
             },
             {
               icon: <Activity className="w-5 h-5" />,
               activeIcon: <Activity className="w-5 h-5 text-emerald-500" />,
               label: "System Analytics",
               path: "/dashboard/overview2",
-              roles: ["superadmin"],
+              // roles: ["superadmin"],
             },
           ],
         },
@@ -125,7 +125,7 @@ const Sidebar: React.FC = () => {
               label: "Business Management",
               path: "/dashboard/operations",
               expandable: true,
-              roles: ["admin", "superadmin"],
+              // roles: ["admin", "superadmin"],
               subItems: [
                 {
                   label: "Business Overview",
@@ -147,8 +147,9 @@ const Sidebar: React.FC = () => {
                   path: "/dashboard/operations/virtual-accounts",
                   icon: <CreditCard className="w-4 h-4" />
                 },
-                ...(userRole === "superadmin"
-                ?[{
+                // ...(userRole === "superadmin"
+                // ?[
+                    {
                   label: "Transfer Bucket",
                   path: "/dashboard/operations/transfer-bucket",
                   icon: <ArrowUpDown className="w-4 h-4" />
@@ -157,8 +158,8 @@ const Sidebar: React.FC = () => {
                   label: "Resolve Transaction",
                   path: "/dashboard/operations/resolve-transaction",
                   icon: <AlertTriangle className="w-4 h-4" />
-                }]
-                  :[]),
+                }
+                // ]:[]),
               ],
             },
             {
@@ -173,7 +174,7 @@ const Sidebar: React.FC = () => {
               activeIcon: <Mail className="w-5 h-5 text-emerald-500" />,
               label: "Communications",
               path: "/dashboard/operations/compose-email",
-              roles: ["superadmin"],
+              // roles: ["superadmin"],
             },
           ],
         },
@@ -264,7 +265,7 @@ const Sidebar: React.FC = () => {
               icon: <Building2 className="w-5 h-5" />,
               label: "NETMFB Banking",
               path: "/dashboard/netmfb",
-              roles: ["superadmin"],
+              // roles: ["superadmin"],
 
               expandable: true,
               subItems: [
@@ -278,13 +279,14 @@ const Sidebar: React.FC = () => {
                   path: "/dashboard/netmfb/statement",
                   icon: <FileText className="w-4 h-4" />
                 },
-                ...(userRole === "superadmin"
-                    ? [{
+                // ...(userRole === "superadmin"
+                //     ? [
+                        {
                       label: "Bank Transfer",
                       path: "/dashboard/netmfb/transfer",
                       icon: <ArrowUpDown className="w-4 h-4" />
-                    }]
-                    : []),
+                    }
+                    // ] : []),
               ],
             },
           ],
@@ -401,7 +403,7 @@ const Sidebar: React.FC = () => {
               icon: <Users className="w-5 h-5" />,
               label: "Staff Management",
               path: "/dashboard/staff",
-              roles: ["superadmin"],
+              // roles: ["superadmin"],
               expandable: true,
               subItems: [
                 {
@@ -415,7 +417,7 @@ const Sidebar: React.FC = () => {
               icon: <Wallet className="w-5 h-5" />,
               label: "Cashier Operations",
               path: "/dashboard/cashier",
-              roles: ["superadmin"],
+              // roles: ["superadmin"],
               expandable: true,
               subItems: [
                 {
@@ -435,7 +437,7 @@ const Sidebar: React.FC = () => {
               label: "Growth & Performance",
               path: "/dashboard/growth",
               expandable: true,
-              roles: ["superadmin"],
+              // roles: ["superadmin"],
               subItems: [
                 {
                   label: "Merchant Performance",

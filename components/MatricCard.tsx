@@ -6,7 +6,7 @@ export interface MetricCardProps {
     title: string;
     count: string | number;
     trendPercentage?: number;
-    variant?: 'blue' | 'purple' | 'success' | 'warning' | 'error' | 'default';
+    variant?: 'blue' | 'purple' | 'success' | 'warning' | 'error' | 'danger' | 'info' | 'default';
     isLoading?: boolean;
 }
 
@@ -24,6 +24,13 @@ const VARIANT_STYLES = {
         title: "text-blue-600",
         iconBg: "bg-blue-50/50",
         shadow: "shadow-blue-200/50",
+    },
+    info: {
+        background: "bg-gradient-to-br from-sky-50 via-sky-50/50 to-white",
+        border: "border-sky-100/50",
+        title: "text-sky-600",
+        iconBg: "bg-sky-50/50",
+        shadow: "shadow-sky-200/50",
     },
     purple: {
         background: "bg-gradient-to-br from-purple-50 via-purple-50/50 to-white",
@@ -53,32 +60,45 @@ const VARIANT_STYLES = {
         iconBg: "bg-red-50/50",
         shadow: "shadow-red-200/50",
     },
+    danger: {
+        background: "bg-gradient-to-br from-red-50 via-red-50/50 to-white",
+        border: "border-red-100/50",
+        title: "text-red-600",
+        iconBg: "bg-red-50/50",
+        shadow: "shadow-red-200/50",
+    },
+} as const;
+
+const MetricCardSkeleton: React.FC<{ variant?: keyof typeof VARIANT_STYLES }> = ({ variant = 'default' }) => {
+    // Fallback to default if variant is invalid
+    const styles = VARIANT_STYLES[variant] || VARIANT_STYLES.default;
+
+    return (
+        <div className={cn(
+            "animate-pulse rounded-xl border p-6 h-full",
+            styles.background,
+            styles.border
+        )}>
+            <div className="h-4 bg-gray-200/50 rounded w-1/2 mb-4"></div>
+            <div className="h-8 bg-gray-200/50 rounded w-3/4"></div>
+        </div>
+    );
 };
 
-const MetricCardSkeleton: React.FC<{ variant?: keyof typeof VARIANT_STYLES }> = ({ variant = 'default' }) => (
-    <div className={cn(
-        "animate-pulse rounded-xl border p-6 h-full",
-        VARIANT_STYLES[variant].background,
-        VARIANT_STYLES[variant].border
-    )}>
-        <div className="h-4 bg-gray-200/50 rounded w-1/2 mb-4"></div>
-        <div className="h-8 bg-gray-200/50 rounded w-3/4"></div>
-    </div>
-);
-
 export const MetricCard: React.FC<MetricCardProps> = ({
-    title,
-    count,
-    trendPercentage,
-    variant = 'default',
-    isLoading,
-}) => {
+                                                          title,
+                                                          count,
+                                                          trendPercentage,
+                                                          variant = 'default',
+                                                          isLoading,
+                                                      }) => {
     if (isLoading) {
-        return <MetricCardSkeleton variant={variant} />;
+        return <MetricCardSkeleton variant={variant as keyof typeof VARIANT_STYLES} />;
     }
 
     const isPositiveTrend = trendPercentage && trendPercentage > 0;
-    const styles = VARIANT_STYLES[variant];
+    // Fallback to default if variant is invalid
+    const styles = VARIANT_STYLES[variant as keyof typeof VARIANT_STYLES] || VARIANT_STYLES.default;
 
     return (
         <div className={cn(

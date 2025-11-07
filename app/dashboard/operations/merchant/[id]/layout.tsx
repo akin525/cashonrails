@@ -317,21 +317,21 @@ export default function SettingsLayout({
             label: "Edit Business",
             href: `/dashboard/operations/merchant/${params.id}/edit-business`,
             icon: <Edit3 className="w-4 h-4" />,
-            allowedRoles: ["superadmin"]
+            // allowedRoles: ["superadmin"]
 
         },
         {
             label: "Upload KYC",
             href: `/dashboard/operations/merchant/${params.id}/upload-kyc`,
             icon: <Shield className="w-4 h-4" />,
-            allowedRoles: ["superadmin"]
+            // allowedRoles: ["superadmin"]
 
         },
         {
             label: "Upload Directors",
             href: `/dashboard/operations/merchant/${params.id}/upload-directors`,
             icon: <Users className="w-4 h-4" />,
-            allowedRoles: ["superadmin"]
+            // allowedRoles: ["superadmin"]
         },
         {
             label: "Transactions",
@@ -367,7 +367,7 @@ export default function SettingsLayout({
             label: "Payment Methods & Fees",
             href: `/dashboard/operations/merchant/${params.id}/payment-method-fees`,
             icon: <Settings className="w-4 h-4" />,
-            allowedRoles: ["superadmin"]
+            // allowedRoles: ["superadmin"]
 
         },
         {
