@@ -461,17 +461,6 @@ const Page = () => {
                                     </p>
                                 </div>
 
-                                {/* Fee */}
-                                {/*<div className="space-y-2 p-3 bg-gray-50 rounded">*/}
-                                {/*    <p className="text-xs text-gray-500 uppercase">Fee</p>*/}
-                                {/*    <p className="text-sm font-semibold text-gray-800">{selectedPayout.fee}</p>*/}
-                                {/*</div>*/}
-
-                                {/* System Fee */}
-                                {/*<div className="space-y-2 p-3 bg-gray-50 rounded">*/}
-                                {/*    <p className="text-xs text-gray-500 uppercase">System Fee</p>*/}
-                                {/*    <p className="text-sm font-semibold text-gray-800">{selectedPayout.sys_fee}</p>*/}
-                                {/*</div>*/}
 
                                 {/* Gateway */}
                                 <div className="space-y-2 p-3 bg-gray-50 rounded">
