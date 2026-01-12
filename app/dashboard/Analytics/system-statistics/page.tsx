@@ -83,13 +83,62 @@ interface MetricCardProps {
 
 // Constants
 const CURRENCIES: Currency[] = [
-    { code: "NGN", symbol: "₦", name: "Nigerian Naira" },
+    // Major / Global
     { code: "USD", symbol: "$", name: "US Dollar" },
     { code: "EUR", symbol: "€", name: "Euro" },
     { code: "GBP", symbol: "£", name: "British Pound" },
+
+    // West Africa
+    { code: "NGN", symbol: "₦", name: "Nigerian Naira" },
+    { code: "GHS", symbol: "₵", name: "Ghanaian Cedi" },
+    { code: "XOF", symbol: "CFA", name: "West African CFA Franc" },
+    { code: "SLL", symbol: "Le", name: "Sierra Leonean Leone" },
+    { code: "GMD", symbol: "D", name: "Gambian Dalasi" },
+    { code: "LRD", symbol: "$", name: "Liberian Dollar" },
+    { code: "CVE", symbol: "$", name: "Cape Verdean Escudo" },
+    { code: "GNF", symbol: "FG", name: "Guinean Franc" },
+
+    // North Africa
+    { code: "EGP", symbol: "£", name: "Egyptian Pound" },
+    { code: "MAD", symbol: "د.م.", name: "Moroccan Dirham" },
+    { code: "DZD", symbol: "دج", name: "Algerian Dinar" },
+    { code: "TND", symbol: "د.ت", name: "Tunisian Dinar" },
+    { code: "LYD", symbol: "ل.د", name: "Libyan Dinar" },
+
+    // Central Africa
+    { code: "XAF", symbol: "FCFA", name: "Central African CFA Franc" },
+    { code: "CDF", symbol: "FC", name: "Congolese Franc" },
+    { code: "STD", symbol: "Db", name: "São Tomé and Príncipe Dobra" },
+
+    // East Africa
     { code: "KES", symbol: "KSh", name: "Kenyan Shilling" },
+    { code: "UGX", symbol: "USh", name: "Ugandan Shilling" },
+    { code: "TZS", symbol: "TSh", name: "Tanzanian Shilling" },
+    { code: "RWF", symbol: "RF", name: "Rwandan Franc" },
+    { code: "BIF", symbol: "FBu", name: "Burundian Franc" },
+    { code: "ETB", symbol: "Br", name: "Ethiopian Birr" },
+    { code: "SOS", symbol: "Sh", name: "Somali Shilling" },
+    { code: "DJF", symbol: "Fdj", name: "Djiboutian Franc" },
+    { code: "ERN", symbol: "Nfk", name: "Eritrean Nakfa" },
+    { code: "SSP", symbol: "£", name: "South Sudanese Pound" },
+
+    // Southern Africa
     { code: "ZAR", symbol: "R", name: "South African Rand" },
+    { code: "BWP", symbol: "P", name: "Botswana Pula" },
+    { code: "NAD", symbol: "$", name: "Namibian Dollar" },
+    { code: "SZL", symbol: "E", name: "Eswatini Lilangeni" },
+    { code: "LSL", symbol: "L", name: "Lesotho Loti" },
+    { code: "MWK", symbol: "MK", name: "Malawian Kwacha" },
+    { code: "ZMW", symbol: "ZK", name: "Zambian Kwacha" },
+    { code: "ZWL", symbol: "Z$", name: "Zimbabwean Dollar" },
+    { code: "MZN", symbol: "MT", name: "Mozambican Metical" },
+
+    // Island Nations
+    { code: "MUR", symbol: "₨", name: "Mauritian Rupee" },
+    { code: "SCR", symbol: "₨", name: "Seychellois Rupee" },
+    { code: "KMF", symbol: "CF", name: "Comorian Franc" },
 ];
+
 
 const CHART_COLORS = {
     primary: "#10B981",

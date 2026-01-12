@@ -54,12 +54,64 @@ export default function Monthlytatistics() {
 
     const getCurrencySymbol = (code: string) => {
         switch (code) {
+            // Major & North Africa
+            case "NGN": return "₦"; // Nigeria
+            case "ZAR": return "R"; // South Africa
+            case "EGP": return "£"; // Egypt
+            case "MAD": return "د.م."; // Morocco
+            case "DZD": return "دج"; // Algeria
+            case "TND": return "د.ت"; // Tunisia
+            case "LYD": return "ل.د"; // Libya
+
+            // West Africa
+            case "GHS": return "₵"; // Ghana
+            case "XOF": return "CFA"; // West African CFA
+            case "SLL": return "Le"; // Sierra Leone
+            case "GMD": return "D"; // Gambia
+            case "LRD": return "$"; // Liberia
+            case "CVE": return "$"; // Cape Verde
+            case "GNF": return "FG"; // Guinea
+
+            // Central Africa
+            case "XAF": return "FCFA"; // Central African CFA
+            case "CDF": return "FC"; // DR Congo
+            case "STD": return "Db"; // São Tomé (old but still seen)
+
+            // East Africa
+            case "KES": return "KSh"; // Kenya
+            case "UGX": return "USh"; // Uganda
+            case "TZS": return "TSh"; // Tanzania
+            case "RWF": return "RF"; // Rwanda
+            case "BIF": return "FBu"; // Burundi
+            case "ETB": return "Br"; // Ethiopia
+            case "SOS": return "Sh"; // Somalia
+            case "DJF": return "Fdj"; // Djibouti
+            case "ERN": return "Nfk"; // Eritrea
+            case "SSP": return "£"; // South Sudan
+
+            // Southern Africa
+            case "BWP": return "P"; // Botswana
+            case "NAD": return "$"; // Namibia
+            case "SZL": return "E"; // Eswatini
+            case "LSL": return "L"; // Lesotho
+            case "MWK": return "MK"; // Malawi
+            case "ZMW": return "ZK"; // Zambia
+            case "ZWL": return "Z$"; // Zimbabwe
+            case "MZN": return "MT"; // Mozambique
+
+            // Indian Ocean / Islands
+            case "MUR": return "₨"; // Mauritius
+            case "SCR": return "₨"; // Seychelles
+            case "KMF": return "CF"; // Comoros
+
+            // Defaults
             case "USD": return "$";
             case "EUR": return "€";
             case "GBP": return "£";
-            case "NGN": return "₦";
-            default: return "";
+
+            default: return code; // fallback for safety
         }
+
     };
     const barChartData = [
         { name: "Collection", [currency]: stats?.[`collection_sum_${currency}`] || 0 },
@@ -97,10 +149,54 @@ export default function Monthlytatistics() {
                             onChange={(e) => setCurrency(e.target.value)}
                             className="p-3 border rounded-md w-full md:w-1/4 focus:ring-2 focus:ring-green-400 dark:bg-gray-800 dark:text-white dark:border-gray-700"
                         >
-                            <option value="NGN">NGN</option>
-                            <option value="USD">USD</option>
-                            <option value="EUR">EUR</option>
-                            <option value="GBP">GBP</option>
+                            <option value="USD">USD – US Dollar</option>
+                            <option value="EUR">EUR – Euro</option>
+                            <option value="GBP">GBP – British Pound</option>
+
+                            <option value="NGN">NGN – Nigerian Naira</option>
+                            <option value="GHS">GHS – Ghanaian Cedi</option>
+                            <option value="XOF">XOF – West African CFA Franc</option>
+                            <option value="SLL">SLL – Sierra Leonean Leone</option>
+                            <option value="GMD">GMD – Gambian Dalasi</option>
+                            <option value="LRD">LRD – Liberian Dollar</option>
+                            <option value="CVE">CVE – Cape Verdean Escudo</option>
+                            <option value="GNF">GNF – Guinean Franc</option>
+
+                            <option value="EGP">EGP – Egyptian Pound</option>
+                            <option value="MAD">MAD – Moroccan Dirham</option>
+                            <option value="DZD">DZD – Algerian Dinar</option>
+                            <option value="TND">TND – Tunisian Dinar</option>
+                            <option value="LYD">LYD – Libyan Dinar</option>
+
+                            <option value="XAF">XAF – Central African CFA Franc</option>
+                            <option value="CDF">CDF – Congolese Franc</option>
+                            <option value="STD">STD – São Tomé and Príncipe Dobra</option>
+
+                            <option value="KES">KES – Kenyan Shilling</option>
+                            <option value="UGX">UGX – Ugandan Shilling</option>
+                            <option value="TZS">TZS – Tanzanian Shilling</option>
+                            <option value="RWF">RWF – Rwandan Franc</option>
+                            <option value="BIF">BIF – Burundian Franc</option>
+                            <option value="ETB">ETB – Ethiopian Birr</option>
+                            <option value="SOS">SOS – Somali Shilling</option>
+                            <option value="DJF">DJF – Djiboutian Franc</option>
+                            <option value="ERN">ERN – Eritrean Nakfa</option>
+                            <option value="SSP">SSP – South Sudanese Pound</option>
+
+                            <option value="ZAR">ZAR – South African Rand</option>
+                            <option value="BWP">BWP – Botswana Pula</option>
+                            <option value="NAD">NAD – Namibian Dollar</option>
+                            <option value="SZL">SZL – Eswatini Lilangeni</option>
+                            <option value="LSL">LSL – Lesotho Loti</option>
+                            <option value="MWK">MWK – Malawian Kwacha</option>
+                            <option value="ZMW">ZMW – Zambian Kwacha</option>
+                            <option value="ZWL">ZWL – Zimbabwean Dollar</option>
+                            <option value="MZN">MZN – Mozambican Metical</option>
+
+                            <option value="MUR">MUR – Mauritian Rupee</option>
+                            <option value="SCR">SCR – Seychellois Rupee</option>
+                            <option value="KMF">KMF – Comorian Franc</option>
+
                         </select>
                         <button
                             type="submit"

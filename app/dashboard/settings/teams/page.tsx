@@ -306,7 +306,7 @@ const AdminUsersPage: React.FC = () => {
     const [pagination, setPagination] = useState({
         total: 0,
         totalPages: 1,
-        limit: 10
+        limit: 30
     });
 
     const fetchData = useCallback(async (page: number) => {

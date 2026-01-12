@@ -174,7 +174,7 @@ const COLUMNS: Column<TableData>[] = [
         renderCustom: (row: TableData) => (
             <div className="font-semibold">
                 <span className="text-emerald-600 dark:text-emerald-400">
-                    {row.currency === 'NGN' ? '₦' : row.currency === 'USD' ? '$' : row.currency === 'KES' ? 'KSh' : row.currency === "USDT" ? 'USDT' : ''}
+                    {row.currency === 'NGN' ? '₦' : row.currency === 'USD' ? '$' : row.currency === 'KES' ? 'KSh' : row.currency === "USDT" ?'USDT' : row.currency === 'TZS' ? 'TZS' : row.currency ==="GHS"?'GHS' : ''}
                 </span>
                 {Number(row.amount).toLocaleString()}
             </div>
@@ -205,7 +205,7 @@ const COLUMNS: Column<TableData>[] = [
     },
 ];
 
-type Currency = 'NGN' | 'USD' | 'KES' | 'USDT' | 'ZAR' | 'XOF' | 'XAF';
+type Currency = 'NGN' | 'USD' | 'KES' | 'USDT' | 'ZAR' | 'XOF' | 'XAF' | 'GHS'| 'TZS';
 
 interface CurrencyData {
     sumTransaction?: number;
@@ -249,10 +249,12 @@ const CURRENCIES: Array<{ code: Currency; symbol: string; label: string; color: 
     { code: 'NGN', symbol: '₦', label: 'NGN', color: 'emerald' },
     { code: 'USD', symbol: '$', label: 'USD', color: 'blue' },
     { code: 'KES', symbol: 'KSh', label: 'KES', color: 'purple' },
+    { code: 'GHS', symbol: 'GHS', label: 'GHS', color: 'green' },
     { code: 'USDT', symbol: 'USDT', label: 'USDT', color: 'teal' },
     { code: 'ZAR', symbol: 'R', label: 'ZAR', color: 'orange' },
     { code: 'XOF', symbol: 'CFA', label: 'XOF', color: 'pink' },
     { code: 'XAF', symbol: 'FCFA', label: 'XAF', color: 'indigo' },
+    { code: 'TZS', symbol: 'TZS', label: 'TZS', color: 'indigo' },
 ];
 
 const DEFAULT_DAYS_BACK = 7;
